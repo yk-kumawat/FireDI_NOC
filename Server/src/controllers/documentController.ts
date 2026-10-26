@@ -398,3 +398,92 @@ export const deleteDocument = async (
     });
   }
 };
+
+// ─── Extract Text ────────────────────────────────────────────────────────────────
+export const extractText = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.user!.userId;
+    const applicationId = getParam(req.params.id);
+    const documentId = getParam(req.params.documentId);
+
+    const documentService = getDocumentService();
+    const extraction = await documentService.extractText(
+      applicationId,
+      documentId,
+      userId
+    );
+
+    res.status(202).json({
+      success: true,
+      message: "Text extraction started",
+      data: { extraction },
+    });
+  } catch (error: any) {
+    if (error instanceof DocumentServiceError) {
+      res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+        code: error.code,
+      });
+      return;
+    }
+    console.error("extractText error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to start text extraction",
+      error: error.message,
+    });
+  }
+};
+
+// ─── Get Extraction Result ───────────────────────────────────────────────────────
+export const getExtraction = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.user!.userId;
+    const applicationId = getParam(req.params.id);
+    const documentId = getParam(req.params.documentId);
+
+    const documentService = getDocumentService();
+    const extraction = await documentService.getExtraction(
+      applicationId,
+      documentId,
+      userId
+    );
+
+    if (!extraction) {
+      res.status(404).json({
+        success: false,
+        message: "No extraction found for this document",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: { extraction },
+    });
+  } catch (error: any) {
+    if (error instanceof DocumentServiceError) {
+      res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+        code: error.code,
+      });
+      return;
+    }
+    console.error("getExtraction error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to retrieve extraction",
+      error: error.message,
+    });
+  }
+};

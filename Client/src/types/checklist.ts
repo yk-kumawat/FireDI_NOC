@@ -13,6 +13,9 @@ export type RequirementCategory =
 export type DocumentProcessingStatus = "UPLOADED" | "PROCESSING" | "PROCESSED" | "FAILED";
 export type DocumentVerificationStatus = "NOT_STARTED" | "PENDING_REVIEW" | "VERIFIED" | "REJECTED";
 
+export type TextExtractionStatus = "NOT_STARTED" | "QUEUED" | "PROCESSING" | "COMPLETED" | "PARTIAL" | "FAILED";
+export type TextExtractionMethod = "EMBEDDED" | "OCR" | "MIXED";
+
 export interface RawMaterialItem {
   name: string;
   quantity: number;
@@ -33,6 +36,28 @@ export interface ChecklistItemResponse {
   notes?: string;
 }
 
+export interface ExtractedPage {
+  pageNumber: number;
+  text: string;
+  method: TextExtractionMethod;
+  confidence?: number;
+  error?: string;
+}
+
+export interface TextExtractionResult {
+  status: TextExtractionStatus;
+  method: TextExtractionMethod;
+  pages: ExtractedPage[];
+  totalPages: number;
+  processedPages: number;
+  language: string;
+  startedAt?: string;
+  completedAt?: string;
+  error?: string;
+  errorCategory?: string;
+  textSize: number;
+}
+
 export interface Document {
   _id: string;
   requirementId: string;
@@ -44,6 +69,7 @@ export interface Document {
   verificationStatus: DocumentVerificationStatus;
   uploadedAt: string;
   createdAt: string;
+  extraction?: TextExtractionResult;
 }
 
 export interface ChecklistItem {

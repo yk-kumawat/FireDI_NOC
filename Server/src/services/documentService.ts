@@ -3,6 +3,10 @@ import Document, {
   IDocument,
   DocumentProcessingStatus,
   DocumentVerificationStatus,
+  TextExtractionStatus,
+  TextExtractionMethod,
+  ITextExtractionResult,
+  IExtractedPage,
 } from "../models/Document.js";
 import Application, { ApplicationStatus } from "../models/Application.js";
 import Checklist from "../models/Checklist.js";
@@ -13,6 +17,7 @@ import {
   StorageError,
   createStorageService,
 } from "./storageService.js";
+import { getTextExtractionService, TextExtractionError } from "./textExtractionService.js";
 
 // RequirementType is a type alias, use string literal for runtime comparison
 const REQUIREMENT_TYPE_DOCUMENT: RequirementType = "DOCUMENT";
@@ -518,6 +523,155 @@ export class DocumentService {
 
     // Delete metadata
     await Document.findByIdAndDelete(documentId);
+  }
+
+  // ─── Text Extraction ───────────────────────────────────────────────────────────
+
+  /**
+   * Start or retry text extraction for a document
+   */
+  async extractText(
+    applicationId: string,
+    documentId: string,
+    applicantId: string
+  ): Promise<ITextExtractionResult> {
+    const document = await this.getDocument({
+      applicationId,
+      documentId,
+      applicantId,
+    });
+
+    if (!document) {
+      throw new DocumentServiceError("Document not found", 404, "DOCUMENT_NOT_FOUND");
+    }
+
+    // Verify ownership
+    if (document.applicantId.toString() !== applicantId) {
+      throw new DocumentServiceError("Access denied", 403, "ACCESS_DENIED");
+    }
+
+    // Check application status
+    const application = await Application.findById(document.applicationId);
+    if (!application) {
+      throw new DocumentServiceError("Application not found", 404, "APPLICATION_NOT_FOUND");
+    }
+
+    if (
+      application.status !== ApplicationStatus.DRAFT &&
+      application.status !== ApplicationStatus.SUBMITTED
+    ) {
+      throw new DocumentServiceError(
+        `Text extraction not allowed for applications with status: ${application.status}`,
+        403,
+        "INVALID_APPLICATION_STATUS"
+      );
+    }
+
+    // Check if already processing
+    const currentExtraction = document.extraction;
+    if (
+      currentExtraction &&
+      (currentExtraction.status === TextExtractionStatus.PROCESSING ||
+        currentExtraction.status === TextExtractionStatus.QUEUED)
+    ) {
+      throw new DocumentServiceError(
+        "Text extraction already in progress",
+        409,
+        "EXTRACTION_IN_PROGRESS"
+      );
+    }
+
+    // Check if already completed
+    if (
+      currentExtraction &&
+      currentExtraction.status === TextExtractionStatus.COMPLETED
+    ) {
+      return currentExtraction;
+    }
+
+    // Set initial processing status
+    document.extraction = {
+      status: TextExtractionStatus.PROCESSING,
+      method: TextExtractionMethod.EMBEDDED, // Will be updated after extraction
+      pages: [],
+      totalPages: 0,
+      processedPages: 0,
+      language: "eng",
+      startedAt: new Date(),
+      textSize: 0,
+    };
+    document.processingStatus = DocumentProcessingStatus.PROCESSING;
+    await document.save();
+
+    // Perform extraction asynchronously (fire and forget with status updates)
+    // In a production system, this would use a job queue
+    this.performExtractionAsync(document);
+
+    // Return initial status
+    return document.extraction;
+  }
+
+  /**
+   * Perform text extraction asynchronously
+   */
+  private async performExtractionAsync(document: IDocument): Promise<void> {
+    const extractionService = getTextExtractionService({
+      maxPages: MAX_PDF_PAGES,
+      ocrLanguage: "eng",
+      minEmbeddedTextLength: 50,
+    });
+
+    try {
+      const result = await extractionService.extractText(
+        document.cloudinaryPublicId,
+        document.cloudinaryResourceType as "raw" | "image",
+        document.cloudinaryDeliveryType,
+        document.mimeType
+      );
+
+      // Update document with result
+      document.extraction = result;
+      document.processingStatus = DocumentProcessingStatus.PROCESSED;
+      await document.save();
+    } catch (error) {
+      // Update document with error
+      document.extraction = {
+        status: TextExtractionStatus.FAILED,
+        method: TextExtractionMethod.EMBEDDED,
+        pages: [],
+        totalPages: 0,
+        processedPages: 0,
+        language: "eng",
+        startedAt: document.extraction?.startedAt,
+        completedAt: new Date(),
+        error: error instanceof Error ? error.message : "Unknown error",
+        errorCategory: error instanceof TextExtractionError ? error.category : "UNKNOWN",
+        textSize: 0,
+      };
+      document.processingStatus = DocumentProcessingStatus.FAILED;
+      await document.save();
+    }
+  }
+
+  /**
+   * Get extraction result for a document
+   */
+  async getExtraction(
+    applicationId: string,
+    documentId: string,
+    applicantId: string
+  ): Promise<ITextExtractionResult | null> {
+    const document = await this.getDocument({
+      applicationId,
+      documentId,
+      applicantId,
+    });
+
+    if (!document) {
+      throw new DocumentServiceError("Document not found", 404, "DOCUMENT_NOT_FOUND");
+    }
+
+    return document.extraction || null;
   }
 }
 

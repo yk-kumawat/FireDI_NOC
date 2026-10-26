@@ -6,6 +6,8 @@ import {
   getDocumentDownloadUrl,
   replaceDocument,
   deleteDocument,
+  extractText,
+  getExtraction,
 } from "../controllers/documentController.js";
 import { authenticateToken, authorizeRoles } from "../middleware/auth.js";
 import { UserRole } from "../models/User.js";
@@ -62,5 +64,19 @@ router.put("/:id/documents/:documentId", replaceDocument);
  * @access  Private (APPLICANT)
  */
 router.delete("/:id/documents/:documentId", deleteDocument);
+
+/**
+ * @route   POST /api/applications/:id/documents/:documentId/extract-text
+ * @desc    Start or retry text extraction for a document
+ * @access  Private (APPLICANT)
+ */
+router.post("/:id/documents/:documentId/extract-text", extractText);
+
+/**
+ * @route   GET /api/applications/:id/documents/:documentId/extraction
+ * @desc    Get text extraction result for a document
+ * @access  Private (APPLICANT)
+ */
+router.get("/:id/documents/:documentId/extraction", getExtraction);
 
 export default router;

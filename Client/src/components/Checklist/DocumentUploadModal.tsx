@@ -1,10 +1,12 @@
-import { useState, useCallback, useRef, type ChangeEvent } from "react";
-import type { Document } from "../../types/checklist";
+import { useState, useCallback, useRef, useEffect, type ChangeEvent } from "react";
+import type { Document, TextExtractionResult, TextExtractionStatus } from "../../types/checklist";
 import {
   uploadDocument,
   deleteDocument,
   getDocumentDownloadUrl,
   listDocuments,
+  extractText,
+  getExtraction,
 } from "../../services/documentApi";
 
 interface DocumentUploadModalProps {
@@ -35,6 +37,8 @@ export const DocumentUploadModal = ({
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [extractingDocId, setExtractingDocId] = useState<string | null>(null);
+  const [extractionResults, setExtractionResults] = useState<Record<string, TextExtractionResult>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchDocuments = useCallback(async () => {
@@ -51,7 +55,7 @@ export const DocumentUploadModal = ({
   }, [token, applicationId, requirementId]);
 
   // Fetch documents when modal opens
-  useCallback(() => {
+  useEffect(() => {
     if (isOpen) {
       fetchDocuments();
     }
@@ -123,6 +127,64 @@ export const DocumentUploadModal = ({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleExtractText = async (document: Document) => {
+    if (extractingDocId === document._id) return;
+
+    setExtractingDocId(document._id);
+    setError("");
+
+    try {
+      const res = await extractText(token, applicationId, document._id);
+      setExtractionResults((prev) => ({ ...prev, [document._id]: res.extraction }));
+      setSuccessMsg("Text extraction started. Check back shortly for results.");
+      setTimeout(() => setSuccessMsg(""), 4000);
+    } catch (err: any) {
+      setError(err.message || "Failed to start text extraction");
+    } finally {
+      setExtractingDocId(null);
+    }
+  };
+
+  const handleGetExtraction = async (document: Document) => {
+    setError("");
+
+    try {
+      const res = await getExtraction(token, applicationId, document._id);
+      setExtractionResults((prev) => ({ ...prev, [document._id]: res.extraction }));
+    } catch (err: any) {
+      setError(err.message || "Failed to get extraction result");
+    }
+  };
+
+  const getExtractionStatusBadge = (status: TextExtractionStatus) => {
+    const styles: Record<string, string> = {
+      NOT_STARTED: "bg-slate-100 text-slate-700",
+      QUEUED: "bg-blue-100 text-blue-700",
+      PROCESSING: "bg-amber-100 text-amber-700",
+      COMPLETED: "bg-green-100 text-green-700",
+      PARTIAL: "bg-orange-100 text-orange-700",
+      FAILED: "bg-red-100 text-red-700",
+    };
+    return (
+      <span className={`px-2 py-0.5 text-[10px] font-semibold rounded ${styles[status] || "bg-slate-100 text-slate-700"}`}>
+        {status}
+      </span>
+    );
+  };
+
+  const getMethodBadge = (method: TextExtractionResult["method"]) => {
+    const styles: Record<string, string> = {
+      EMBEDDED: "bg-blue-100 text-blue-700",
+      OCR: "bg-purple-100 text-purple-700",
+      MIXED: "bg-indigo-100 text-indigo-700",
+    };
+    return (
+      <span className={`px-2 py-0.5 text-[10px] font-semibold rounded ${styles[method] || "bg-slate-100 text-slate-700"}`}>
+        {method}
+      </span>
+    );
   };
 
   const formatFileSize = (bytes: number) => {
@@ -312,6 +374,41 @@ export const DocumentUploadModal = ({
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                           </svg>
                         </button>
+                        {/* Extract Text Button */}
+                        <button
+                          onClick={() => {
+                            const existingExtraction = doc.extraction || extractionResults[doc._id];
+                            if (existingExtraction?.status === "COMPLETED" || existingExtraction?.status === "PARTIAL") {
+                              handleGetExtraction(doc);
+                            } else {
+                              handleExtractText(doc);
+                            }
+                          }}
+                          disabled={isLoading || isUploading || extractingDocId === doc._id}
+                          className={`p-2 rounded-lg transition-colors ${
+                            extractingDocId === doc._id
+                              ? "bg-amber-100 text-amber-700 cursor-wait"
+                              : "text-[#5b403d] hover:bg-[#f1f5f9]"
+                          }`}
+                          title={
+                            extractingDocId === doc._id
+                              ? "Extracting..."
+                              : doc.extraction?.status === "COMPLETED" || doc.extraction?.status === "PARTIAL"
+                              ? "View Extraction"
+                              : "Extract Text"
+                          }
+                        >
+                          {extractingDocId === doc._id ? (
+                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 002-2h2a2 2 0 002 2" />
+                            </svg>
+                          )}
+                        </button>
                         {!isReadOnly && (
                           <>
                             <button
@@ -347,6 +444,77 @@ export const DocumentUploadModal = ({
                         minute: "2-digit",
                       })}
                     </p>
+
+                    {/* Extraction Results */}
+                    {(() => {
+                      const extraction = doc.extraction || extractionResults[doc._id];
+                      if (!extraction) return null;
+
+                      return (
+                        <div className="mt-3 pt-3 border-t border-[#e2e8f0] space-y-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[11px] font-semibold text-[#475569]">Extraction:</span>
+                            {getExtractionStatusBadge(extraction.status)}
+                            {getMethodBadge(extraction.method)}
+                            <span className="text-[11px] text-[#5b403d]">
+                              {extraction.processedPages}/{extraction.totalPages} pages
+                            </span>
+                            {extraction.textSize > 0 && (
+                              <span className="text-[11px] text-[#5b403d]">
+                                {Math.round(extraction.textSize / 1024)} KB text
+                              </span>
+                            )}
+                          </div>
+
+                          {extraction.error && (
+                            <div className="p-2 bg-red-50 border border-red-200 rounded text-[11px] text-red-700">
+                              <strong>Error:</strong> {extraction.error}
+                              {extraction.errorCategory && <span className="ml-2">({extraction.errorCategory})</span>}
+                            </div>
+                          )}
+
+                          {extraction.status === "COMPLETED" || extraction.status === "PARTIAL" ? (
+                            <details className="group">
+                              <summary className="cursor-pointer text-xs text-[#b91c1c] hover:underline flex items-center gap-1">
+                                <span>View Extracted Text</span>
+                                <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </summary>
+                              <div className="mt-2 p-3 bg-white border border-[#e2e8f0] rounded max-h-48 overflow-auto text-[11px] font-mono text-[#131b2e] whitespace-pre-wrap">
+                                {extraction.pages.map((page) => (
+                                  <div key={page.pageNumber} className="mb-2">
+                                    <div className="text-[10px] text-[#5b403d] mb-1">
+                                      Page {page.pageNumber} ({page.method})
+                                      {page.confidence && <span className="ml-2">Confidence: {Math.round(page.confidence)}%</span>}
+                                      {page.error && <span className="ml-2 text-red-600">Error: {page.error}</span>}
+                                    </div>
+                                    <div>{page.text || "(no text extracted)"}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
+                          ) : extraction.status === "PROCESSING" ? (
+                            <div className="text-[11px] text-[#5b403d] flex items-center gap-2">
+                              <div className="w-4 h-4 border-2 border-[#b91c1c] border-t-transparent rounded-full animate-spin" />
+                              <span>Processing... Check back shortly.</span>
+                            </div>
+                          ) : extraction.status === "FAILED" ? (
+                            <div className="text-[11px] text-red-600">
+                              Extraction failed. <button onClick={() => handleExtractText(doc)} className="underline hover:text-[#b91c1c]">Retry</button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleExtractText(doc)}
+                              disabled={extractingDocId === doc._id}
+                              className="text-xs text-[#b91c1c] hover:underline"
+                            >
+                              Start Extraction
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>

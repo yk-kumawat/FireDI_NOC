@@ -1,4 +1,4 @@
-import type { Document } from "../types/checklist";
+import type { Document, TextExtractionResult } from "../types/checklist";
 
 const BASE_URL = "http://localhost:5000";
 
@@ -152,4 +152,39 @@ export async function deleteDocument(
     }
     throw new Error(body.message || `Request failed with status ${res.status}`);
   }
+}
+
+/**
+ * Start or retry text extraction for a document.
+ */
+export async function extractText(
+  token: string,
+  applicationId: string,
+  documentId: string
+): Promise<{ extraction: TextExtractionResult }> {
+  const res = await fetch(
+    `${BASE_URL}/api/applications/${applicationId}/documents/${documentId}/extract-text`,
+    {
+      method: "POST",
+      headers: getAuthHeaders(token),
+    }
+  );
+  return handleResponse<{ extraction: TextExtractionResult }>(res);
+}
+
+/**
+ * Get text extraction result for a document.
+ */
+export async function getExtraction(
+  token: string,
+  applicationId: string,
+  documentId: string
+): Promise<{ extraction: TextExtractionResult }> {
+  const res = await fetch(
+    `${BASE_URL}/api/applications/${applicationId}/documents/${documentId}/extraction`,
+    {
+      headers: getAuthHeaders(token),
+    }
+  );
+  return handleResponse<{ extraction: TextExtractionResult }>(res);
 }

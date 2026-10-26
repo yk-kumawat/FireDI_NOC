@@ -20,6 +20,43 @@ export enum DocumentResourceType {
   AUTO = "auto",
 }
 
+export enum TextExtractionStatus {
+  NOT_STARTED = "NOT_STARTED",
+  QUEUED = "QUEUED",
+  PROCESSING = "PROCESSING",
+  COMPLETED = "COMPLETED",
+  PARTIAL = "PARTIAL",
+  FAILED = "FAILED",
+}
+
+export enum TextExtractionMethod {
+  EMBEDDED = "EMBEDDED",
+  OCR = "OCR",
+  MIXED = "MIXED",
+}
+
+export interface IExtractedPage {
+  pageNumber: number;
+  text: string;
+  method: TextExtractionMethod;
+  confidence?: number;
+  error?: string;
+}
+
+export interface ITextExtractionResult {
+  status: TextExtractionStatus;
+  method: TextExtractionMethod;
+  pages: IExtractedPage[];
+  totalPages: number;
+  processedPages: number;
+  language: string;
+  startedAt?: Date;
+  completedAt?: Date;
+  error?: string;
+  errorCategory?: string;
+  textSize: number;
+}
+
 export interface IDocument extends MongooseDocument {
   applicationId: mongoose.Types.ObjectId;
   applicantId: mongoose.Types.ObjectId;
@@ -40,7 +77,51 @@ export interface IDocument extends MongooseDocument {
   uploadedAt: Date;
   createdAt: Date;
   updatedAt: Date;
+  // Text extraction fields
+  extraction?: ITextExtractionResult;
 }
+
+// Sub-schema for extracted pages
+const extractedPageSchema = new Schema<IExtractedPage>(
+  {
+    pageNumber: { type: Number, required: true, min: 1 },
+    text: { type: String, required: true, default: "" },
+    method: {
+      type: String,
+      enum: Object.values(TextExtractionMethod),
+      required: true,
+    },
+    confidence: { type: Number, min: 0, max: 100 },
+    error: { type: String, trim: true },
+  },
+  { _id: false }
+);
+
+const textExtractionResultSchema = new Schema<ITextExtractionResult>(
+  {
+    status: {
+      type: String,
+      enum: Object.values(TextExtractionStatus),
+      required: true,
+      default: TextExtractionStatus.NOT_STARTED,
+    },
+    method: {
+      type: String,
+      enum: Object.values(TextExtractionMethod),
+      required: true,
+    },
+    pages: { type: [extractedPageSchema], default: [] },
+    totalPages: { type: Number, required: true, min: 0 },
+    processedPages: { type: Number, required: true, min: 0 },
+    language: { type: String, required: true, default: "eng" },
+    startedAt: { type: Date },
+    completedAt: { type: Date },
+    error: { type: String, trim: true },
+    errorCategory: { type: String, trim: true },
+    textSize: { type: Number, required: true, min: 0, default: 0 },
+  },
+  { _id: false }
+);
 
 // Sub-schema for version history reference
 const documentSchema = new Schema<IDocument>(
@@ -131,6 +212,7 @@ const documentSchema = new Schema<IDocument>(
       type: Date,
       default: Date.now,
     },
+    extraction: { type: textExtractionResultSchema, required: false },
   },
   {
     timestamps: true,
