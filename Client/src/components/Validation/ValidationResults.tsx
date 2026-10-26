@@ -106,10 +106,11 @@ export const ValidationResults = ({
     try {
       const res = await getValidation(token, applicationId, document._id);
       setValidation(res.validation);
-    } catch (err: any) {
+    } catch (err: unknown) {
       // If no validation exists yet, that's OK
-      if (!err.message.includes("404") && !err.message.includes("not found")) {
-        setError(err.message || "Failed to load validation result");
+      const errMsg = (err as Error).message || '';
+      if (!errMsg.includes("404") && !errMsg.includes("not found")) {
+        setError(errMsg || "Failed to load validation result");
       }
     } finally {
       setIsLoading(false);
@@ -123,8 +124,8 @@ export const ValidationResults = ({
     try {
       const res = await validateDocument(token, applicationId, document._id);
       setValidation(res.validation);
-    } catch (err: any) {
-      setError(err.message || "Failed to validate document");
+    } catch (err: unknown) {
+      setError((err as Error).message || "Failed to validate document");
     } finally {
       setIsValidating(false);
     }
@@ -137,8 +138,8 @@ export const ValidationResults = ({
     try {
       const res = await revalidateDocument(token, applicationId, document._id);
       setValidation(res.validation);
-    } catch (err: any) {
-      setError(err.message || "Failed to revalidate document");
+    } catch (err: unknown) {
+      setError((err as Error).message || "Failed to revalidate document");
     } finally {
       setIsValidating(false);
     }

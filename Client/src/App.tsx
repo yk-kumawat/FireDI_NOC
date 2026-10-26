@@ -6,6 +6,7 @@ import SignUpPage from './pages/SignUpPage';
 import SignInPage from './pages/SignInPage';
 import ApplicantDashboard from './pages/ApplicantDashboard';
 import InspectorDashboard from './pages/InspectorDashboard';
+import InspectorReviewPage from './pages/InspectorReviewPage';
 import { ApplyPage } from './pages/PlaceholderPages';
 import ApplicationListPage from './pages/applications/ApplicationListPage';
 import ApplicationFormPage from './pages/applications/ApplicationFormPage';
@@ -70,6 +71,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['INSPECTOR']}>
                 <InspectorDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/inspector/applications/:id/review"
+            element={
+              <ProtectedRoute allowedRoles={['INSPECTOR']}>
+                <InspectorReviewPage />
               </ProtectedRoute>
             }
           />

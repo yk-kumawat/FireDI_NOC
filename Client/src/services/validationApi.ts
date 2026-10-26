@@ -17,14 +17,14 @@ async function handleResponse<T>(res: Response): Promise<T> {
     return json.data as T;
   }
 
-  let body: { message?: string; errors?: any } = {};
+  let body: { message?: string; errors?: unknown } = {};
   try {
     body = await res.json();
   } catch {
     // ignore parse error
   }
 
-  const err: Error & { errors?: any } = new Error(
+  const err: Error & { errors?: unknown } = new Error(
     body.message || `Request failed with status ${res.status}`
   );
   if (body.errors) {

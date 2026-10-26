@@ -85,6 +85,35 @@ export interface DocumentValidationResult {
   updatedAt?: string;
 }
 
+// ─── Inspector Review Types ───────────────────────────────────────────────────────
+export type ReviewStatus =
+  | "NOT_REVIEWED"
+  | "IN_REVIEW"
+  | "REVIEWED"
+  | "FLAGGED_FOR_CORRECTION";
+
+export interface ReviewFinding {
+  findingId: string;
+  status: ReviewStatus;
+  reviewerNote?: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+}
+
+export interface DocumentReview {
+  _id?: string;
+  documentId: string;
+  applicationId: string;
+  reviewerId: string;
+  status: ReviewStatus;
+  overallNote?: string;
+  findings: ReviewFinding[];
+  startedAt: string;
+  completedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface ExtractedField {
   name: string;
   value: string | number | null;
@@ -165,6 +194,7 @@ export interface Document {
   extraction?: TextExtractionResult;
   classification?: DocumentClassification;
   validation?: DocumentValidationResult;
+  review?: DocumentReview;
 }
 
 export interface ChecklistItem {

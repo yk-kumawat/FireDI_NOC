@@ -87,7 +87,7 @@ const SignInPage = () => {
       if (!response.ok) {
         if (data.errors && Array.isArray(data.errors)) {
           const fieldErrors: FormErrors = {};
-          data.errors.forEach((error: any) => {
+          data.errors.forEach((error: { path?: string; msg: string }) => {
             if (error.path) {
               fieldErrors[error.path as keyof FormErrors] = error.msg;
             }

@@ -125,6 +125,36 @@ export enum ValidationFindingStatus {
   FAILED = "failed",
 }
 
+// ─── Inspector Review Types ──────────────────────────────────────────────────────
+export enum ReviewStatus {
+  NOT_REVIEWED = "NOT_REVIEWED",
+  IN_REVIEW = "IN_REVIEW",
+  REVIEWED = "REVIEWED",
+  FLAGGED_FOR_CORRECTION = "FLAGGED_FOR_CORRECTION",
+}
+
+export interface IReviewFinding {
+  findingId: string;
+  status: ReviewStatus;
+  reviewerNote?: string;
+  reviewedAt?: Date;
+  reviewedBy?: mongoose.Types.ObjectId;
+}
+
+export interface IDocumentReview {
+  _id?: mongoose.Types.ObjectId;
+  documentId: mongoose.Types.ObjectId;
+  applicationId: mongoose.Types.ObjectId;
+  reviewerId: mongoose.Types.ObjectId;
+  status: ReviewStatus;
+  overallNote?: string;
+  findings: IReviewFinding[];
+  startedAt: Date;
+  completedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface IValidationFinding {
   findingId: string;
   fieldName: string;
@@ -189,6 +219,8 @@ export interface IDocument extends MongooseDocument {
   classification?: IDocumentClassification;
   // Document Validation fields
   validation?: IDocumentValidationResult;
+  // Inspector Review fields
+  review?: IDocumentReview;
 }
 
 // Sub-schema for extracted pages
@@ -342,6 +374,57 @@ const documentValidationResultSchema = new Schema<IDocumentValidationResult>(
   { _id: true, timestamps: true }
 );
 
+// ─── Inspector Review Sub-schemas ─────────────────────────────────────────────────
+const reviewFindingSchema = new Schema<IReviewFinding>(
+  {
+    findingId: { type: String, required: true, trim: true },
+    status: {
+      type: String,
+      enum: Object.values(ReviewStatus),
+      required: true,
+      default: ReviewStatus.NOT_REVIEWED,
+    },
+    reviewerNote: { type: String, trim: true },
+    reviewedAt: { type: Date },
+    reviewedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
+  },
+  { _id: false }
+);
+
+const documentReviewSchema = new Schema<IDocumentReview>(
+  {
+    documentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Document",
+      required: true,
+    },
+    applicationId: {
+      type: Schema.Types.ObjectId,
+      ref: "Application",
+      required: true,
+    },
+    reviewerId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: Object.values(ReviewStatus),
+      required: true,
+      default: ReviewStatus.NOT_REVIEWED,
+    },
+    overallNote: { type: String, trim: true },
+    findings: { type: [reviewFindingSchema], default: [] },
+    startedAt: { type: Date, required: true, default: Date.now },
+    completedAt: { type: Date },
+  },
+  { _id: true, timestamps: true }
+);
+
 // Sub-schema for version history reference
 const documentSchema = new Schema<IDocument>(
   {
@@ -434,6 +517,7 @@ const documentSchema = new Schema<IDocument>(
     extraction: { type: textExtractionResultSchema, required: false },
     classification: { type: documentClassificationSchema, required: false },
     validation: { type: documentValidationResultSchema, required: false },
+    review: { type: documentReviewSchema, required: false },
   },
   {
     timestamps: true,

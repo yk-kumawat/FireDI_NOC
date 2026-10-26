@@ -105,8 +105,8 @@ const ApplicationListPage = () => {
       const data = await listApplications(token, { page, limit: 10, status: statusFilter });
       setApplications(data.applications);
       setPagination(data.pagination);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load applications');
+    } catch (err: unknown) {
+      setError((err as Error).message || 'Failed to load applications');
     } finally {
       setIsLoading(false);
     }
@@ -125,8 +125,8 @@ const ApplicationListPage = () => {
       setToastMessage(`Application ${app.applicationId} submitted successfully!`);
       setTimeout(() => setToastMessage(''), 4000);
       fetchApplications();
-    } catch (err: any) {
-      alert(err.message || 'Failed to submit application');
+    } catch (err: unknown) {
+      alert((err as Error).message || 'Failed to submit application');
     } finally {
       setSubmittingId(null);
     }

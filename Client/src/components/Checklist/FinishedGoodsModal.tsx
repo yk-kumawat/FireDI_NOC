@@ -78,8 +78,8 @@ export const FinishedGoodsModal = ({
     try {
       await onSave(goods);
       onClose();
-    } catch (err: any) {
-      setError(err.message || "Failed to save finished goods");
+    } catch (err: unknown) {
+      setError((err as Error).message || "Failed to save finished goods");
     } finally {
       setIsSaving(false);
     }

@@ -2,6 +2,7 @@ import express from "express";
 import authRoutes from "./routes/authRoutes.js";
 import applicantRoutes from "./routes/applicantRoutes.js";
 import inspectorRoutes from "./routes/inspectorRoutes.js";
+import inspectorReviewRoutes from "./routes/inspectorReviewRoutes.js";
 import applicationRoutes from "./routes/applicationRoutes.js";
 import documentRoutes from "./routes/documentRoutes.js";
 import validationRoutes from "./routes/validationRoutes.js";
@@ -64,6 +65,7 @@ app.get("/", (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/applicant", applicantRoutes);
 app.use("/api/inspector", inspectorRoutes);
+app.use("/api/inspector", inspectorReviewRoutes);
 app.use("/api/applications", applicationRoutes);
 app.use("/api/applications", documentRoutes);
 app.use("/api/applications", validationRoutes);

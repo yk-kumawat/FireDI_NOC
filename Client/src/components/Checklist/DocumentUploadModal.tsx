@@ -54,8 +54,8 @@ export const DocumentUploadModal = ({
     try {
       const res = await listDocuments(token, applicationId, requirementId);
       setDocuments(res.documents);
-    } catch (err: any) {
-      setError(err.message || "Failed to load documents");
+    } catch (err: unknown) {
+      setError((err as Error).message || "Failed to load documents");
     } finally {
       setIsLoading(false);
     }
@@ -98,8 +98,8 @@ export const DocumentUploadModal = ({
       setSuccessMsg(`"${file.name}" uploaded successfully`);
       setTimeout(() => setSuccessMsg(""), 4000);
       onUploadSuccess?.([res.document, ...documents]);
-    } catch (err: any) {
-      setError(err.message || "Failed to upload document");
+    } catch (err: unknown) {
+      setError((err as Error).message || "Failed to upload document");
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
@@ -113,8 +113,8 @@ export const DocumentUploadModal = ({
       const res = await getDocumentDownloadUrl(token, applicationId, document._id);
       // Open in new tab for download
       window.open(res.downloadUrl, "_blank");
-    } catch (err: any) {
-      setError(err.message || "Failed to get download link");
+    } catch (err: unknown) {
+      setError((err as Error).message || "Failed to get download link");
     }
   };
 
@@ -129,8 +129,8 @@ export const DocumentUploadModal = ({
       setSuccessMsg("Document deleted successfully");
       setTimeout(() => setSuccessMsg(""), 4000);
       onUploadSuccess?.(documents.filter((d) => d._id !== documentId));
-    } catch (err: any) {
-      setError(err.message || "Failed to delete document");
+    } catch (err: unknown) {
+      setError((err as Error).message || "Failed to delete document");
     } finally {
       setIsLoading(false);
     }
@@ -147,8 +147,8 @@ export const DocumentUploadModal = ({
       setExtractionResults((prev) => ({ ...prev, [document._id]: res.extraction }));
       setSuccessMsg("Text extraction started. Check back shortly for results.");
       setTimeout(() => setSuccessMsg(""), 4000);
-    } catch (err: any) {
-      setError(err.message || "Failed to start text extraction");
+    } catch (err: unknown) {
+      setError((err as Error).message || "Failed to start text extraction");
     } finally {
       setExtractingDocId(null);
     }
@@ -160,8 +160,8 @@ export const DocumentUploadModal = ({
     try {
       const res = await getExtraction(token, applicationId, document._id);
       setExtractionResults((prev) => ({ ...prev, [document._id]: res.extraction }));
-    } catch (err: any) {
-      setError(err.message || "Failed to get extraction result");
+    } catch (err: unknown) {
+      setError((err as Error).message || "Failed to get extraction result");
     }
   };
 
@@ -176,8 +176,8 @@ export const DocumentUploadModal = ({
       setClassificationResults((prev) => ({ ...prev, [document._id]: res.classification }));
       setSuccessMsg("AI classification started. Check back shortly for results.");
       setTimeout(() => setSuccessMsg(""), 4000);
-    } catch (err: any) {
-      setError(err.message || "Failed to start AI classification");
+    } catch (err: unknown) {
+      setError((err as Error).message || "Failed to start AI classification");
     } finally {
       setClassifyingDocId(null);
     }
@@ -189,8 +189,8 @@ export const DocumentUploadModal = ({
     try {
       const res = await getClassification(token, applicationId, document._id);
       setClassificationResults((prev) => ({ ...prev, [document._id]: res.classification }));
-    } catch (err: any) {
-      setError(err.message || "Failed to get classification result");
+    } catch (err: unknown) {
+      setError((err as Error).message || "Failed to get classification result");
     }
   };
 
@@ -210,8 +210,8 @@ export const DocumentUploadModal = ({
       );
       setSuccessMsg("Document validation completed.");
       setTimeout(() => setSuccessMsg(""), 4000);
-    } catch (err: any) {
-      setError(err.message || "Failed to validate document");
+    } catch (err: unknown) {
+      setError((err as Error).message || "Failed to validate document");
     } finally {
       setValidatingDocId(null);
     }
@@ -227,8 +227,8 @@ export const DocumentUploadModal = ({
           d._id === document._id ? { ...d, validation: res.validation } : d
         )
       );
-    } catch (err: any) {
-      setError(err.message || "Failed to get validation result");
+    } catch (err: unknown) {
+      setError((err as Error).message || "Failed to get validation result");
     }
   };
 
@@ -433,7 +433,7 @@ export const DocumentUploadModal = ({
                 <h4 className="text-sm font-semibold text-[#131b2e] flex items-center gap-2" style={{ fontFamily: "Inter, sans-serif" }}>
                   <span>Uploaded Documents ({documents.length})</span>
                 </h4>
-                {documents.map((doc, _index) => (
+                {documents.map((doc) => (
                   <div
                     key={doc._id}
                     className="p-3 rounded-lg border border-[#e2e8f0] bg-[#fafbfc] hover:border-[#cbd5e1] transition-colors"

@@ -52,8 +52,8 @@ export const ChecklistSection = ({
     try {
       const res = await getChecklist(token, applicationId);
       setChecklist(res.checklist);
-    } catch (err: any) {
-      setError(err.message || "Failed to load checklist");
+    } catch (err: unknown) {
+      setError((err as Error).message || "Failed to load checklist");
     } finally {
       setIsLoading(false);
     }
@@ -72,8 +72,8 @@ export const ChecklistSection = ({
       setChecklist(res.checklist);
       setSuccessMsg("Checklist generated successfully according to active rules.");
       setTimeout(() => setSuccessMsg(""), 4000);
-    } catch (err: any) {
-      setError(err.message || "Failed to generate checklist");
+    } catch (err: unknown) {
+      setError((err as Error).message || "Failed to generate checklist");
     } finally {
       setIsGenerating(false);
     }

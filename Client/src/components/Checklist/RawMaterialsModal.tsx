@@ -78,8 +78,8 @@ export const RawMaterialsModal = ({
     try {
       await onSave(materials);
       onClose();
-    } catch (err: any) {
-      setError(err.message || "Failed to save raw materials");
+    } catch (err: unknown) {
+      setError((err as Error).message || "Failed to save raw materials");
     } finally {
       setIsSaving(false);
     }

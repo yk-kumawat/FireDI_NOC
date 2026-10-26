@@ -176,7 +176,9 @@ const ApplicationFormPage = () => {
 
   // Track unsaved changes for navigation warning
   const isDirtyRef = useRef(isDirty);
-  isDirtyRef.current = isDirty;
+  useEffect(() => {
+    isDirtyRef.current = isDirty;
+  }, [isDirty]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -229,8 +231,8 @@ const ApplicationFormPage = () => {
           },
           architectDetails: app.architectDetails ?? { name: '', registrationNumber: '', email: '', phone: '' },
         });
-      } catch (err: any) {
-        setGlobalError(err.message || 'Failed to load application');
+      } catch (err: unknown) {
+        setGlobalError((err as Error).message || 'Failed to load application');
       } finally {
         setIsLoading(false);
       }
@@ -314,8 +316,8 @@ const ApplicationFormPage = () => {
       setIsDirty(false);
       setSaveMessage('Draft saved successfully');
       setTimeout(() => setSaveMessage(''), 3000);
-    } catch (err: any) {
-      setGlobalError(err.message || 'Failed to save draft');
+    } catch (err: unknown) {
+      setGlobalError((err as Error).message || 'Failed to save draft');
     } finally {
       setIsSaving(false);
     }
@@ -360,17 +362,18 @@ const ApplicationFormPage = () => {
       await submitApplication(token, appId);
       setIsDirty(false);
       navigate('/applicant/applications', { state: { successMessage: 'Application submitted successfully!' } });
-    } catch (err: any) {
-      if (err.errors) {
+    } catch (err: unknown) {
+      const typedErr = err as Error & { errors?: { field: string; message: string }[] };
+      if (typedErr.errors) {
         // Map server field errors
         const mapped: Record<string, string> = {};
-        (err.errors as { field: string; message: string }[]).forEach(({ field, message }) => {
+        typedErr.errors.forEach(({ field, message }) => {
           mapped[field] = message;
         });
         setFieldErrors(mapped);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
-        setGlobalError(err.message || 'Failed to submit application');
+        setGlobalError(typedErr.message || 'Failed to submit application');
       }
     } finally {
       setIsSubmitting(false);

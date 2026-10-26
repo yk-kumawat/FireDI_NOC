@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getApplication, submitApplication } from '../../services/applicationApi';
 import type { Application, ApplicationStatus } from '../../types/application';
 import { ChecklistSection } from '../../components/Checklist/ChecklistSection';
+import { DocumentVerificationSummary } from '../../components/Verification/DocumentVerificationSummary';
 
 // ─── Header ───────────────────────────────────────────────────────────────────
 const AppHeader = () => {
@@ -96,21 +97,22 @@ const ApplicationDetailPage = () => {
   const [error, setError] = useState<{ message: string; status?: number } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [activeTab, setActiveTab] = useState<'checklist' | 'verification'>('checklist');
 
-  const fetchApp = async () => {
+  const fetchApp = useCallback(async () => {
     if (!token || !id) return;
     setIsLoading(true);
     try {
       const data = await getApplication(token, id);
       setApplication(data.application);
-    } catch (err: any) {
-      setError({ message: err.message || 'Failed to load application' });
+    } catch (err: unknown) {
+      setError({ message: (err as Error).message || 'Failed to load application' });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [token, id]);
 
-  useEffect(() => { fetchApp(); }, [id, token]);
+  useEffect(() => { fetchApp(); }, [fetchApp]);
 
   const handleSubmit = async () => {
     if (!token || !application) return;
@@ -120,8 +122,8 @@ const ApplicationDetailPage = () => {
     try {
       await submitApplication(token, application._id);
       navigate('/applicant/applications', { state: { successMessage: 'Application submitted successfully!' } });
-    } catch (err: any) {
-      setSubmitError(err.message || 'Failed to submit');
+    } catch (err: unknown) {
+      setSubmitError((err as Error).message || 'Failed to submit');
     } finally {
       setIsSubmitting(false);
     }
@@ -252,11 +254,58 @@ const ApplicationDetailPage = () => {
           )}
         </div>
 
-        {/* ── Dynamic Checklist Engine ──────────────────────────────────────── */}
-        <ChecklistSection
-          applicationId={application._id}
-          isApplicationDraft={application.status === 'DRAFT'}
-        />
+        {/* ── Tabbed Interface ─────────────────────────────────────────────────────────── */}
+        <div className="bg-white rounded-xl border border-[#e2e8f0] shadow-[0_1px_3px_0_rgba(15,23,42,0.05)] mb-5">
+          {/* Tab Navigation */}
+          <div className="border-b border-[#e2e8f0]">
+            <nav className="flex gap-1 px-6" aria-label="Application tabs">
+              <button
+                onClick={() => setActiveTab('checklist')}
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium rounded-t-lg transition-colors -mb-px border-b-2 ${
+                  activeTab === 'checklist'
+                    ? 'text-[#b91c1c] border-[#b91c1c] bg-[#fef2f2]'
+                    : 'text-[#5b403d] hover:text-[#131b2e] hover:bg-[#f8fafc]'
+                }`}
+                style={{ fontFamily: 'Inter, sans-serif' }}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+                Checklist Requirements
+              </button>
+              <button
+                onClick={() => setActiveTab('verification')}
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium rounded-t-lg transition-colors -mb-px border-b-2 ${
+                  activeTab === 'verification'
+                    ? 'text-[#b91c1c] border-[#b91c1c] bg-[#fef2f2]'
+                    : 'text-[#5b403d] hover:text-[#131b2e] hover:bg-[#f8fafc]'
+                }`}
+                style={{ fontFamily: 'Inter, sans-serif' }}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                Document Verification
+              </button>
+            </nav>
+          </div>
+
+          {/* Tab Content */}
+          <div className="p-6">
+            {activeTab === 'checklist' && (
+              <ChecklistSection
+                applicationId={application._id}
+                isApplicationDraft={application.status === 'DRAFT'}
+              />
+            )}
+            {activeTab === 'verification' && (
+              <DocumentVerificationSummary
+                applicationId={application._id}
+                isApplicationDraft={application.status === 'DRAFT'}
+              />
+            )}
+          </div>
+        </div>
 
         {/* ── Sections ─────────────────────────────────────────────────────── */}
         <SectionCard title="Applicant Information">
