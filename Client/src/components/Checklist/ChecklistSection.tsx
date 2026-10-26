@@ -10,9 +10,11 @@ import type {
   RequirementCategory,
   RawMaterialItem,
   FinishedGoodsItem,
+  Document,
 } from "../../types/checklist";
 import { RawMaterialsModal } from "./RawMaterialsModal";
 import { FinishedGoodsModal } from "./FinishedGoodsModal";
+import { DocumentUploadModal } from "./DocumentUploadModal";
 
 interface ChecklistSectionProps {
   applicationId: string;
@@ -39,7 +41,9 @@ export const ChecklistSection = ({
   const [successMsg, setSuccessMsg] = useState("");
 
   // Modals state
-  const [activeModal, setActiveModal] = useState<"RAW_MATERIALS" | "FINISHED_GOODS" | null>(null);
+  const [activeModal, setActiveModal] = useState<"RAW_MATERIALS" | "FINISHED_GOODS" | "DOCUMENTS" | null>(null);
+  const [docModalRequirementId, setDocModalRequirementId] = useState<string | null>(null);
+  const [docModalRequirementName, setDocModalRequirementName] = useState<string>("");
 
   const fetchChecklistData = useCallback(async () => {
     if (!token || !applicationId) return;
@@ -99,6 +103,28 @@ export const ChecklistSection = ({
     setChecklist(res.checklist);
     setSuccessMsg("Finished goods inventory updated successfully.");
     setTimeout(() => setSuccessMsg(""), 4000);
+  };
+
+  const handleOpenDocumentModal = (requirementId: string, requirementName: string) => {
+    setDocModalRequirementId(requirementId);
+    setDocModalRequirementName(requirementName);
+    setActiveModal("DOCUMENTS");
+  };
+
+  const handleDocumentUploadSuccess = (updatedDocuments: Document[]) => {
+    // Update the checklist item's documents in local state
+    setChecklist((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        items: prev.items.map((item) => {
+          if (item.requirementId === docModalRequirementId) {
+            return { ...item, documents: updatedDocuments };
+          }
+          return item;
+        }),
+      };
+    });
   };
 
   if (isLoading) {
@@ -398,6 +424,29 @@ export const ChecklistSection = ({
                           )}
                         </div>
                       )}
+
+                      {/* Action for Document Requirements */}
+                      {item.type === "DOCUMENT" && (
+                        <div className="shrink-0 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDocumentModal(item.requirementId, item.name)}
+                            disabled={!isApplicationDraft && !item.documents?.length}
+                            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors shadow-sm ${
+                              !isApplicationDraft && !item.documents?.length
+                                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                                : "bg-[#b91c1c] text-white hover:bg-[#991b1b]"
+                            }`}
+                            style={{ fontFamily: "Inter, sans-serif" }}
+                          >
+                            {item.documents && item.documents.length > 0
+                              ? isApplicationDraft
+                                ? `Manage Documents (${item.documents.length})`
+                                : `View Documents (${item.documents.length})`
+                              : "Upload Document"}
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     {/* Preview of entered response data */}
@@ -496,6 +545,23 @@ export const ChecklistSection = ({
         onSave={handleSaveGoods}
         initialGoods={finishedGoodsItem?.response?.goods}
         isReadOnly={!isApplicationDraft}
+      />
+
+      {/* Document Upload Modal */}
+      <DocumentUploadModal
+        isOpen={activeModal === "DOCUMENTS"}
+        onClose={() => {
+          setActiveModal(null);
+          setDocModalRequirementId(null);
+          setDocModalRequirementName("");
+        }}
+        applicationId={applicationId}
+        requirementId={docModalRequirementId || ""}
+        requirementName={docModalRequirementName}
+        token={token || ""}
+        isReadOnly={!isApplicationDraft}
+        existingDocuments={checklist?.items.find((it) => it.requirementId === docModalRequirementId)?.documents}
+        onUploadSuccess={handleDocumentUploadSuccess}
       />
     </div>
   );

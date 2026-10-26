@@ -10,6 +10,9 @@ export type RequirementCategory =
   | "HAZARDOUS_MATERIALS"
   | "BUILDING_SAFETY";
 
+export type DocumentProcessingStatus = "UPLOADED" | "PROCESSING" | "PROCESSED" | "FAILED";
+export type DocumentVerificationStatus = "NOT_STARTED" | "PENDING_REVIEW" | "VERIFIED" | "REJECTED";
+
 export interface RawMaterialItem {
   name: string;
   quantity: number;
@@ -30,6 +33,19 @@ export interface ChecklistItemResponse {
   notes?: string;
 }
 
+export interface Document {
+  _id: string;
+  requirementId: string;
+  originalFilename: string;
+  mimeType: string;
+  fileSize: number;
+  version: number;
+  processingStatus: DocumentProcessingStatus;
+  verificationStatus: DocumentVerificationStatus;
+  uploadedAt: string;
+  createdAt: string;
+}
+
 export interface ChecklistItem {
   requirementId: string;
   name: string;
@@ -43,6 +59,7 @@ export interface ChecklistItem {
   sourceReference: string;
   response?: ChecklistItemResponse;
   completedAt?: string;
+  documents?: Document[];
 }
 
 export interface Checklist {
