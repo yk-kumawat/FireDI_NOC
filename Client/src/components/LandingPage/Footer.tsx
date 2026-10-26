@@ -17,7 +17,7 @@ const Footer = () => {
                 </svg>
               </div>
               <span className="font-bold text-lg text-white" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-                SmartFire<span className="text-red-500">-NOC</span>
+                Fire Dept. Inspection & NoC
               </span>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed mb-5 max-w-xs" style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -83,7 +83,7 @@ const Footer = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
             <p className="text-xs text-slate-500" style={{ fontFamily: 'Inter, sans-serif' }}>
-              © {currentYear} SmartFire-NOC. All rights reserved.
+              © {currentYear} Fire Department Inspection & NoC Management. All rights reserved.
             </p>
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-1 bg-slate-800 border border-slate-700 text-slate-400 text-xs font-medium rounded-full" style={{ fontFamily: 'Inter, sans-serif' }}>

@@ -15,7 +15,7 @@ const InspectorDashboard = () => {
               </svg>
             </div>
             <span className="font-bold text-lg text-[#131b2e]" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-              SmartFire<span className="text-[#b91c1c]">-NOC</span>
+              Fire Dept. Inspection & NoC
             </span>
           </div>
 

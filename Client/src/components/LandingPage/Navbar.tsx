@@ -25,7 +25,7 @@ const Navbar = () => {
               </svg>
             </div>
             <span className="font-bold text-lg text-slate-900 tracking-tight" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-              SmartFire<span className="text-red-700">-NOC</span>
+              Fire Dept. Inspection & NoC
             </span>
           </Link>
 

@@ -1,9 +1,9 @@
 {
   "name": "smartfire-noc-server",
   "version": "1.0.0",
-  "description": "Backend server for SmartFire NOC Management System",
+  "description": "Backend server for Fire Department Inspection & NoC Management System",
   "license": "ISC",
-  "author": "SmartFire Team",
+  "author": "Fire Department Inspection & NoC Management Team",
   "type": "module",
   "main": "dist/server.js",
   "scripts": {

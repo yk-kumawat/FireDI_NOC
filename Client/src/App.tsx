@@ -7,6 +7,9 @@ import SignInPage from './pages/SignInPage';
 import ApplicantDashboard from './pages/ApplicantDashboard';
 import InspectorDashboard from './pages/InspectorDashboard';
 import { ApplyPage } from './pages/PlaceholderPages';
+import ApplicationListPage from './pages/applications/ApplicationListPage';
+import ApplicationFormPage from './pages/applications/ApplicationFormPage';
+import ApplicationDetailPage from './pages/applications/ApplicationDetailPage';
 
 function App() {
   return (
@@ -25,6 +28,38 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['APPLICANT']}>
                 <ApplicantDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/applicant/applications"
+            element={
+              <ProtectedRoute allowedRoles={['APPLICANT']}>
+                <ApplicationListPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/applicant/applications/new"
+            element={
+              <ProtectedRoute allowedRoles={['APPLICANT']}>
+                <ApplicationFormPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/applicant/applications/:id"
+            element={
+              <ProtectedRoute allowedRoles={['APPLICANT']}>
+                <ApplicationDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/applicant/applications/:id/edit"
+            element={
+              <ProtectedRoute allowedRoles={['APPLICANT']}>
+                <ApplicationFormPage />
               </ProtectedRoute>
             }
           />

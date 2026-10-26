@@ -1,4 +1,4 @@
-import { useState, FormEvent, ChangeEvent } from 'react';
+import { useState, type FormEvent, type ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -136,7 +136,7 @@ const SignInPage = () => {
               </svg>
             </div>
             <span className="font-bold text-lg text-[#131b2e]" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-              SmartFire<span className="text-[#b91c1c]">-NOC</span>
+              Fire Dept. Inspection & NoC
             </span>
           </Link>
 
@@ -174,7 +174,7 @@ const SignInPage = () => {
             {/* Header */}
             <div className="text-center mb-6">
               <h1 className="text-2xl font-bold text-[#131b2e] mb-2" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-                Sign in to SmartFire-NOC
+                Sign in to Fire Department Inspection & NoC Management
               </h1>
               <p className="text-sm text-[#5b403d]" style={{ fontFamily: 'Inter, sans-serif' }}>
                 Enter your credentials to access your clearances and inspections

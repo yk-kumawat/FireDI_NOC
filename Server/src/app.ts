@@ -2,6 +2,7 @@ import express from "express";
 import authRoutes from "./routes/authRoutes.js";
 import applicantRoutes from "./routes/applicantRoutes.js";
 import inspectorRoutes from "./routes/inspectorRoutes.js";
+import applicationRoutes from "./routes/applicationRoutes.js";
 
 const app = express();
 
@@ -52,7 +53,7 @@ app.use(express.urlencoded({ extended: true }));
 app.get("/", (_req, res) => {
   res.json({
     success: true,
-    message: "SmartFire NOC Management Server is running",
+    message: "Fire Department Inspection & NoC Management Server is running",
     timestamp: new Date().toISOString(),
   });
 });
@@ -61,6 +62,7 @@ app.get("/", (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/applicant", applicantRoutes);
 app.use("/api/inspector", inspectorRoutes);
+app.use("/api/applications", applicationRoutes);
 
 // 404 handler
 app.use((_req, res) => {

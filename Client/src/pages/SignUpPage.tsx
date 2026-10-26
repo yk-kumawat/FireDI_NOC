@@ -152,7 +152,7 @@ const SignUpPage = () => {
               </svg>
             </div>
             <span className="font-bold text-lg text-[#131b2e]" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-              SmartFire<span className="text-[#b91c1c]">-NOC</span>
+              Fire Dept. Inspection & NoC
             </span>
           </Link>
 
@@ -193,7 +193,7 @@ const SignUpPage = () => {
                 Create an account
               </h1>
               <p className="text-sm text-[#5b403d]" style={{ fontFamily: 'Inter, sans-serif' }}>
-                Enter your details to register for SmartFire-NOC
+                Enter your details to register for Fire Department Inspection & NoC Management
               </p>
             </div>
 
