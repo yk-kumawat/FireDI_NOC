@@ -5,8 +5,10 @@ import Document, {
   DocumentVerificationStatus,
   TextExtractionStatus,
   TextExtractionMethod,
+  DocumentClassificationStatus,
   ITextExtractionResult,
   IExtractedPage,
+  IDocumentClassification,
 } from "../models/Document.js";
 import Application, { ApplicationStatus } from "../models/Application.js";
 import Checklist from "../models/Checklist.js";
@@ -18,6 +20,7 @@ import {
   createStorageService,
 } from "./storageService.js";
 import { getTextExtractionService, TextExtractionError } from "./textExtractionService.js";
+import { getAIClassificationService, AIClassificationError } from "./aiClassificationService.js";
 
 // RequirementType is a type alias, use string literal for runtime comparison
 const REQUIREMENT_TYPE_DOCUMENT: RequirementType = "DOCUMENT";
@@ -672,6 +675,40 @@ export class DocumentService {
     }
 
     return document.extraction || null;
+  }
+
+  // ─── AI Classification & Extraction ─────────────────────────────────────────────
+
+  /**
+   * Start or retry AI classification and extraction for a document
+   */
+  async classifyAndExtract(
+    applicationId: string,
+    documentId: string,
+    applicantId: string
+  ): Promise<IDocumentClassification> {
+    const aiService = getAIClassificationService();
+    return aiService.classifyAndExtract({
+      applicationId,
+      documentId,
+      applicantId,
+    });
+  }
+
+  /**
+   * Get AI classification result for a document
+   */
+  async getClassification(
+    applicationId: string,
+    documentId: string,
+    applicantId: string
+  ): Promise<IDocumentClassification | null> {
+    const aiService = getAIClassificationService();
+    return aiService.getClassification({
+      applicationId,
+      documentId,
+      applicantId,
+    });
   }
 }
 

@@ -35,6 +35,38 @@ export enum TextExtractionMethod {
   MIXED = "MIXED",
 }
 
+export enum DocumentClassificationStatus {
+  NOT_STARTED = "NOT_STARTED",
+  QUEUED = "QUEUED",
+  PROCESSING = "PROCESSING",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
+}
+
+export interface IExtractedField {
+  name: string;
+  value: string | number | null;
+  confidence?: number;
+  missing: boolean;
+}
+
+export interface IDocumentClassification {
+  status: DocumentClassificationStatus;
+  expectedRequirementId?: string;
+  predictedRequirementId?: string;
+  predictedRequirementName?: string;
+  confidence: number; // 0-100
+  explanation: string;
+  matchesExpected: boolean;
+  extractedFields: IExtractedField[];
+  missingFields: string[];
+  processingError?: string;
+  processingErrorCategory?: string;
+  startedAt?: Date;
+  completedAt?: Date;
+  modelUsed?: string;
+}
+
 export interface IExtractedPage {
   pageNumber: number;
   text: string;
@@ -55,6 +87,23 @@ export interface ITextExtractionResult {
   error?: string;
   errorCategory?: string;
   textSize: number;
+}
+
+export interface IDocumentClassification {
+  status: DocumentClassificationStatus;
+  expectedRequirementId?: string;
+  predictedRequirementId?: string;
+  predictedRequirementName?: string;
+  confidence: number;
+  explanation: string;
+  matchesExpected: boolean;
+  extractedFields: IExtractedField[];
+  missingFields: string[];
+  processingError?: string;
+  processingErrorCategory?: string;
+  startedAt?: Date;
+  completedAt?: Date;
+  modelUsed?: string;
 }
 
 export interface IDocument extends MongooseDocument {
@@ -79,6 +128,8 @@ export interface IDocument extends MongooseDocument {
   updatedAt: Date;
   // Text extraction fields
   extraction?: ITextExtractionResult;
+  // AI Classification & Extraction fields
+  classification?: IDocumentClassification;
 }
 
 // Sub-schema for extracted pages
@@ -119,6 +170,41 @@ const textExtractionResultSchema = new Schema<ITextExtractionResult>(
     error: { type: String, trim: true },
     errorCategory: { type: String, trim: true },
     textSize: { type: Number, required: true, min: 0, default: 0 },
+  },
+  { _id: false }
+);
+
+const extractedFieldSchema = new Schema<IExtractedField>(
+  {
+    name: { type: String, required: true, trim: true },
+    value: { type: Schema.Types.Mixed },
+    confidence: { type: Number, min: 0, max: 100 },
+    missing: { type: Boolean, required: true, default: false },
+  },
+  { _id: false }
+);
+
+const documentClassificationSchema = new Schema<IDocumentClassification>(
+  {
+    status: {
+      type: String,
+      enum: Object.values(DocumentClassificationStatus),
+      required: true,
+      default: DocumentClassificationStatus.NOT_STARTED,
+    },
+    expectedRequirementId: { type: String, trim: true },
+    predictedRequirementId: { type: String, trim: true },
+    predictedRequirementName: { type: String, trim: true },
+    confidence: { type: Number, required: true, min: 0, max: 100, default: 0 },
+    explanation: { type: String, required: true, trim: true, default: "" },
+    matchesExpected: { type: Boolean, required: true, default: false },
+    extractedFields: { type: [extractedFieldSchema], default: [] },
+    missingFields: { type: [String], default: [] },
+    processingError: { type: String, trim: true },
+    processingErrorCategory: { type: String, trim: true },
+    startedAt: { type: Date },
+    completedAt: { type: Date },
+    modelUsed: { type: String, trim: true },
   },
   { _id: false }
 );
@@ -213,6 +299,7 @@ const documentSchema = new Schema<IDocument>(
       default: Date.now,
     },
     extraction: { type: textExtractionResultSchema, required: false },
+    classification: { type: documentClassificationSchema, required: false },
   },
   {
     timestamps: true,

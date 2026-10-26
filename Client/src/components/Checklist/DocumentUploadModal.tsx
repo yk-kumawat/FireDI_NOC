@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, type ChangeEvent } from "react";
-import type { Document, TextExtractionResult, TextExtractionStatus } from "../../types/checklist";
+import type { Document, TextExtractionResult, TextExtractionStatus, DocumentClassification, DocumentClassificationStatus } from "../../types/checklist";
 import {
   uploadDocument,
   deleteDocument,
@@ -7,6 +7,8 @@ import {
   listDocuments,
   extractText,
   getExtraction,
+  classifyDocument,
+  getClassification,
 } from "../../services/documentApi";
 
 interface DocumentUploadModalProps {
@@ -38,7 +40,9 @@ export const DocumentUploadModal = ({
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [extractingDocId, setExtractingDocId] = useState<string | null>(null);
+  const [classifyingDocId, setClassifyingDocId] = useState<string | null>(null);
   const [extractionResults, setExtractionResults] = useState<Record<string, TextExtractionResult>>({});
+  const [classificationResults, setClassificationResults] = useState<Record<string, DocumentClassification>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchDocuments = useCallback(async () => {
@@ -156,6 +160,58 @@ export const DocumentUploadModal = ({
     } catch (err: any) {
       setError(err.message || "Failed to get extraction result");
     }
+  };
+
+  const handleClassifyDocument = async (document: Document) => {
+    if (classifyingDocId === document._id) return;
+
+    setClassifyingDocId(document._id);
+    setError("");
+
+    try {
+      const res = await classifyDocument(token, applicationId, document._id);
+      setClassificationResults((prev) => ({ ...prev, [document._id]: res.classification }));
+      setSuccessMsg("AI classification started. Check back shortly for results.");
+      setTimeout(() => setSuccessMsg(""), 4000);
+    } catch (err: any) {
+      setError(err.message || "Failed to start AI classification");
+    } finally {
+      setClassifyingDocId(null);
+    }
+  };
+
+  const handleGetClassification = async (document: Document) => {
+    setError("");
+
+    try {
+      const res = await getClassification(token, applicationId, document._id);
+      setClassificationResults((prev) => ({ ...prev, [document._id]: res.classification }));
+    } catch (err: any) {
+      setError(err.message || "Failed to get classification result");
+    }
+  };
+
+  const getClassificationStatusBadge = (status: DocumentClassificationStatus) => {
+    const styles: Record<string, string> = {
+      NOT_STARTED: "bg-slate-100 text-slate-700",
+      QUEUED: "bg-blue-100 text-blue-700",
+      PROCESSING: "bg-amber-100 text-amber-700",
+      COMPLETED: "bg-green-100 text-green-700",
+      FAILED: "bg-red-100 text-red-700",
+    };
+    return (
+      <span className={`px-2 py-0.5 text-[10px] font-semibold rounded ${styles[status] || "bg-slate-100 text-slate-700"}`}>
+        {status}
+      </span>
+    );
+  };
+
+  const getMatchBadge = (matchesExpected: boolean) => {
+    return (
+      <span className={`px-2 py-0.5 text-[10px] font-semibold rounded ${matchesExpected ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}`}>
+        {matchesExpected ? "Matches Expected" : "Mismatch"}
+      </span>
+    );
   };
 
   const getExtractionStatusBadge = (status: TextExtractionStatus) => {
@@ -409,6 +465,53 @@ export const DocumentUploadModal = ({
                             </svg>
                           )}
                         </button>
+                        {/* Classify Document Button */}
+                        <button
+                          onClick={() => {
+                            const existingExtraction = doc.extraction || extractionResults[doc._id];
+                            const existingClassification = doc.classification || classificationResults[doc._id];
+                            const canClassify = existingExtraction?.status === "COMPLETED" || existingExtraction?.status === "PARTIAL";
+                            const isClassifying = classifyingDocId === doc._id;
+                            
+                            if (!canClassify && !isClassifying) {
+                              setError("Text extraction must be completed first");
+                              return;
+                            }
+                            
+                            if (existingClassification?.status === "COMPLETED" && !isClassifying) {
+                              handleGetClassification(doc);
+                            } else if (isClassifying) {
+                              // Do nothing, already classifying
+                            } else {
+                              handleClassifyDocument(doc);
+                            }
+                          }}
+                          disabled={isLoading || isUploading || classifyingDocId === doc._id || 
+                            !(doc.extraction?.status === "COMPLETED" || doc.extraction?.status === "PARTIAL" || extractionResults[doc._id]?.status === "COMPLETED" || extractionResults[doc._id]?.status === "PARTIAL")}
+                          className={`p-2 rounded-lg transition-colors ${
+                            classifyingDocId === doc._id
+                              ? "bg-amber-100 text-amber-700 cursor-wait"
+                              : "text-[#5b403d] hover:bg-[#f1f5f9] opacity-60"
+                          }`}
+                          title={
+                            classifyingDocId === doc._id
+                              ? "Classifying..."
+                              : doc.classification?.status === "COMPLETED" || classificationResults[doc._id]?.status === "COMPLETED"
+                              ? "View Classification"
+                              : "Classify Document (AI)"
+                          }
+                        >
+                          {classifyingDocId === doc._id ? (
+                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                            </svg>
+                          )}
+                        </button>
                         {!isReadOnly && (
                           <>
                             <button
@@ -510,6 +613,88 @@ export const DocumentUploadModal = ({
                               className="text-xs text-[#b91c1c] hover:underline"
                             >
                               Start Extraction
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Classification Results */}
+                    {(() => {
+                      const classification = doc.classification || classificationResults[doc._id];
+                      if (!classification) return null;
+
+                      return (
+                        <div className="mt-3 pt-3 border-t border-[#e2e8f0] space-y-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[11px] font-semibold text-[#475569]">AI Classification:</span>
+                            {getClassificationStatusBadge(classification.status)}
+                            {getMatchBadge(classification.matchesExpected)}
+                            <span className="text-[11px] text-[#5b403d]">
+                              Confidence: {classification.confidence}%
+                            </span>
+                          </div>
+
+                          <div className="text-[11px] text-[#5b403d]">
+                            <strong>Expected:</strong> {classification.expectedRequirementId || "—"} | 
+                            <strong>Predicted:</strong> {classification.predictedRequirementName || "—"} ({classification.predictedRequirementId || "—"})
+                          </div>
+
+                          <div className="text-[11px] text-[#5b403d] italic">
+                            {classification.explanation}
+                          </div>
+
+                          {classification.processingError && (
+                            <div className="p-2 bg-red-50 border border-red-200 rounded text-[11px] text-red-700">
+                              <strong>Error:</strong> {classification.processingError}
+                              {classification.processingErrorCategory && <span className="ml-2">({classification.processingErrorCategory})</span>}
+                            </div>
+                          )}
+
+                          {classification.status === "COMPLETED" ? (
+                            <>
+                              <details className="group">
+                                <summary className="cursor-pointer text-xs text-[#b91c1c] hover:underline flex items-center gap-1">
+                                  <span>View Extracted Fields ({classification.extractedFields.length})</span>
+                                  <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </summary>
+                                <div className="mt-2 p-3 bg-white border border-[#e2e8f0] rounded max-h-60 overflow-auto text-[11px] font-mono text-[#131b2e] whitespace-pre-wrap">
+                                  {classification.extractedFields.map((field, idx) => (
+                                    <div key={idx} className="mb-2">
+                                      <div className="flex items-center gap-1 mb-1">
+                                        <span className="font-semibold">{field.name}:</span>
+                                        <span>{field.value !== null ? String(field.value) : "<missing>"}</span>
+                                        {field.confidence && <span className="ml-2 text-[10px] text-[#5b403d]">Confidence: {field.confidence}%</span>}
+                                        {field.missing && <span className="ml-2 text-[10px] text-red-600">(missing)</span>}
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {classification.missingFields.length > 0 && (
+                                    <div className="mt-2 text-[10px] text-red-600">
+                                      Missing: {classification.missingFields.join(", ")}
+                                    </div>
+                                  )}
+                                </div>
+                              </details>
+                            </>
+                          ) : classification.status === "PROCESSING" ? (
+                            <div className="text-[11px] text-[#5b403d] flex items-center gap-2">
+                              <div className="w-4 h-4 border-2 border-[#b91c1c] border-t-transparent rounded-full animate-spin" />
+                              <span>Classifying... Check back shortly.</span>
+                            </div>
+                          ) : classification.status === "FAILED" ? (
+                            <div className="text-[11px] text-red-600">
+                              Classification failed. <button onClick={() => handleClassifyDocument(doc)} className="underline hover:text-[#b91c1c]">Retry</button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleClassifyDocument(doc)}
+                              disabled={classifyingDocId === doc._id}
+                              className="text-xs text-[#b91c1c] hover:underline"
+                            >
+                              Start Classification
                             </button>
                           )}
                         </div>

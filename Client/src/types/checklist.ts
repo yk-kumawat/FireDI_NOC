@@ -16,6 +16,32 @@ export type DocumentVerificationStatus = "NOT_STARTED" | "PENDING_REVIEW" | "VER
 export type TextExtractionStatus = "NOT_STARTED" | "QUEUED" | "PROCESSING" | "COMPLETED" | "PARTIAL" | "FAILED";
 export type TextExtractionMethod = "EMBEDDED" | "OCR" | "MIXED";
 
+export type DocumentClassificationStatus = "NOT_STARTED" | "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED";
+
+export interface ExtractedField {
+  name: string;
+  value: string | number | null;
+  confidence?: number;
+  missing: boolean;
+}
+
+export interface DocumentClassification {
+  status: DocumentClassificationStatus;
+  expectedRequirementId?: string;
+  predictedRequirementId?: string;
+  predictedRequirementName?: string;
+  confidence: number;
+  explanation: string;
+  matchesExpected: boolean;
+  extractedFields: ExtractedField[];
+  missingFields: string[];
+  processingError?: string;
+  processingErrorCategory?: string;
+  startedAt?: string;
+  completedAt?: string;
+  modelUsed?: string;
+}
+
 export interface RawMaterialItem {
   name: string;
   quantity: number;
@@ -70,6 +96,7 @@ export interface Document {
   uploadedAt: string;
   createdAt: string;
   extraction?: TextExtractionResult;
+  classification?: DocumentClassification;
 }
 
 export interface ChecklistItem {

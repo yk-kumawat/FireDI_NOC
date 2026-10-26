@@ -8,6 +8,8 @@ import {
   deleteDocument,
   extractText,
   getExtraction,
+  classifyDocument,
+  getClassification,
 } from "../controllers/documentController.js";
 import { authenticateToken, authorizeRoles } from "../middleware/auth.js";
 import { UserRole } from "../models/User.js";
@@ -78,5 +80,19 @@ router.post("/:id/documents/:documentId/extract-text", extractText);
  * @access  Private (APPLICANT)
  */
 router.get("/:id/documents/:documentId/extraction", getExtraction);
+
+/**
+ * @route   POST /api/applications/:id/documents/:documentId/classify
+ * @desc    Start or retry AI classification & extraction for a document
+ * @access  Private (APPLICANT)
+ */
+router.post("/:id/documents/:documentId/classify", classifyDocument);
+
+/**
+ * @route   GET /api/applications/:id/documents/:documentId/classification
+ * @desc    Get AI classification & extraction result for a document
+ * @access  Private (APPLICANT)
+ */
+router.get("/:id/documents/:documentId/classification", getClassification);
 
 export default router;

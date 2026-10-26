@@ -1,4 +1,4 @@
-import type { Document, TextExtractionResult } from "../types/checklist";
+import type { Document, TextExtractionResult, DocumentClassification } from "../types/checklist";
 
 const BASE_URL = "http://localhost:5000";
 
@@ -187,4 +187,39 @@ export async function getExtraction(
     }
   );
   return handleResponse<{ extraction: TextExtractionResult }>(res);
+}
+
+/**
+ * Start or retry AI classification & extraction for a document.
+ */
+export async function classifyDocument(
+  token: string,
+  applicationId: string,
+  documentId: string
+): Promise<{ classification: DocumentClassification }> {
+  const res = await fetch(
+    `${BASE_URL}/api/applications/${applicationId}/documents/${documentId}/classify`,
+    {
+      method: "POST",
+      headers: getAuthHeaders(token),
+    }
+  );
+  return handleResponse<{ classification: DocumentClassification }>(res);
+}
+
+/**
+ * Get AI classification & extraction result for a document.
+ */
+export async function getClassification(
+  token: string,
+  applicationId: string,
+  documentId: string
+): Promise<{ classification: DocumentClassification }> {
+  const res = await fetch(
+    `${BASE_URL}/api/applications/${applicationId}/documents/${documentId}/classification`,
+    {
+      headers: getAuthHeaders(token),
+    }
+  );
+  return handleResponse<{ classification: DocumentClassification }>(res);
 }

@@ -4,6 +4,7 @@ import { AuthRequest } from "./authController.js";
 import { getDocumentService } from "../services/documentService.js";
 import { DocumentServiceError } from "../services/documentService.js";
 import { StorageError } from "../services/storageService.js";
+import { AIClassificationError } from "../services/aiClassificationService.js";
 
 // Helper to extract single value from params (handles string | string[])
 const getParam = (param: string | string[]): string => (Array.isArray(param) ? param[0] : param);
@@ -483,6 +484,111 @@ export const getExtraction = async (
     res.status(500).json({
       success: false,
       message: "Failed to retrieve extraction",
+      error: error.message,
+    });
+  }
+};
+
+// ─── Classify Document ───────────────────────────────────────────────────────────
+export const classifyDocument = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.user!.userId;
+    const applicationId = getParam(req.params.id);
+    const documentId = getParam(req.params.documentId);
+
+    const documentService = getDocumentService();
+    const classification = await documentService.classifyAndExtract(
+      applicationId,
+      documentId,
+      userId
+    );
+
+    res.status(202).json({
+      success: true,
+      message: "AI classification started",
+      data: { classification },
+    });
+  } catch (error: any) {
+    if (error instanceof DocumentServiceError) {
+      res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+        code: error.code,
+      });
+      return;
+    }
+    if (error instanceof AIClassificationError) {
+      res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+        code: error.code,
+      });
+      return;
+    }
+    console.error("classifyDocument error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to start classification",
+      error: error.message,
+    });
+  }
+};
+
+// ─── Get Classification Result ───────────────────────────────────────────────────
+export const getClassification = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.user!.userId;
+    const applicationId = getParam(req.params.id);
+    const documentId = getParam(req.params.documentId);
+
+    const documentService = getDocumentService();
+    const classification = await documentService.getClassification(
+      applicationId,
+      documentId,
+      userId
+    );
+
+    if (!classification) {
+      res.status(404).json({
+        success: false,
+        message: "No classification found for this document",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: { classification },
+    });
+  } catch (error: any) {
+    if (error instanceof DocumentServiceError) {
+      res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+        code: error.code,
+      });
+      return;
+    }
+    if (error instanceof AIClassificationError) {
+      res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+        code: error.code,
+      });
+      return;
+    }
+    console.error("getClassification error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to retrieve classification",
       error: error.message,
     });
   }
