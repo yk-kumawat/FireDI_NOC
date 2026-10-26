@@ -5,48 +5,17 @@ import { Link } from "react-router-dom";
 import {
   getApplicationReviewSummary,
   getDocumentForInspector,
-  startDocumentReview,
   completeDocumentReview,
   updateFindingReview,
-  type ReviewStatus,
 } from "../services/inspectorReviewApi";
-import type { ApplicationStatus } from "../types/application";
-import { DocumentVerificationSummary } from "../components/Verification/DocumentVerificationSummary";
-import { InspectorDocumentReviewTab } from "../components/Verification/InspectorDocumentReviewTab";
 import {
-  StatCard,
-  InfoRow,
-  SectionCard,
-  ReviewStatusBadge,
   DocumentRow,
-  DocumentDetailsTab,
   DocumentDetailModal,
 } from "../components/Verification";
 
-const getStatusBadge = (status: ApplicationStatus) => {
-  const config: Record<ApplicationStatus, { bg: string; text: string; dot: string; label: string }> = {
-    DRAFT: { bg: "bg-[#f1f5f9]", text: "text-[#475569]", dot: "bg-[#475569]", label: "Draft" },
-    SUBMITTED: { bg: "bg-[#eff6ff]", text: "text-[#1d4ed8]", dot: "bg-[#1d4ed8]", label: "Submitted" },
-    UNDER_REVIEW: { bg: "bg-[#fff7ed]", text: "text-[#c2410c]", dot: "bg-[#c2410c]", label: "Under Review" },
-  };
-  const c = config[status];
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-full border border-[#e2e8f0] ${c.bg} ${c.text}`} style={{ fontFamily: "Inter, sans-serif" }}>
-      <span className={`w-2 h-2 rounded-full ${c.dot}`} />
-      {c.label}
-    </span>
-  );
-};
-
-const getReviewStatusConfig = (status: ReviewStatus) => {
-  const configs: Record<ReviewStatus, { bg: string; text: string; label: string }> = {
-    NOT_REVIEWED: { bg: "bg-slate-100", text: "text-slate-700", label: "Not Reviewed" },
-    IN_REVIEW: { bg: "bg-blue-100", text: "text-blue-700", label: "In Review" },
-    REVIEWED: { bg: "bg-green-100", text: "text-green-700", label: "Reviewed" },
-    FLAGGED_FOR_CORRECTION: { bg: "bg-amber-100", text: "text-amber-700", label: "Flagged for Correction" },
-  };
-  return configs[status] || configs.NOT_REVIEWED;
-};
+// DocumentDetailModal expects token: string, but useAuth returns string | null
+// Since this page is protected, token should always be present
+const getAuthToken = (token: string | null): string => token || "";
 
 const getValidationStatusConfig = (status: string) => {
   const configs: Record<string, { bg: string; text: string; label: string }> = {
@@ -68,17 +37,7 @@ const getVerificationStatusConfig = (status: string) => {
     VERIFIED: { bg: "bg-green-100", text: "text-green-700", label: "Verified" },
     REJECTED: { bg: "bg-red-100", text: "text-red-700", label: "Rejected" },
   };
-  return configs[status] || configs.NOT_STARTED;
-};
-
-const ReviewStatusBadge = ({ status }: { status: ReviewStatus }) => {
-  const config = getReviewStatusConfig(status);
-  return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full ${config.bg} ${config.text}`}>
-      <span className="w-1.5 h-1.5 rounded-full bg-current" />
-      <span>{config.label}</span>
-    </span>
-  );
+  return configs[status] || configs.NOT_REVIEWED;
 };
 
 const StatCard = ({ label, value, color }: { label: string; value: number; color: string }) => {
@@ -103,16 +62,6 @@ const StatCard = ({ label, value, color }: { label: string; value: number; color
   );
 };
 
-const ReviewStatusBadge = ({ status }: { status: ReviewStatus }) => {
-  const config = getReviewStatusConfig(status);
-  return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full ${config.bg} ${config.text}`}>
-      <span className="w-1.5 h-1.5 rounded-full bg-current" />
-      <span>{config.label}</span>
-    </span>
-  );
-};
-
 const InspectorReviewPage = () => {
   const { id } = useParams<{ id: string }>();
   const { token, user } = useAuth();
@@ -128,7 +77,6 @@ const InspectorReviewPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
-  const [documentLoading, setDocumentLoading] = useState(false);
   const [activeDocTab, setActiveDocTab] = useState<"details" | "validation" | "review">("details");
 
   const fetchSummary = useCallback(async () => {
@@ -151,29 +99,12 @@ const InspectorReviewPage = () => {
 
   const handleDocumentClick = async (doc: any) => {
     if (!token || !id) return;
-    setDocumentLoading(true);
     try {
       const res = await getDocumentForInspector(token, id, doc.documentId);
       setSelectedDocument(res.document);
       setActiveDocTab("details");
     } catch (err: any) {
       setError(err.message || "Failed to load document");
-    } finally {
-      setDocumentLoading(false);
-    }
-  };
-
-  const handleStartReview = async (documentId: string) => {
-    if (!token || !id) return;
-    try {
-      await startDocumentReview(token, id, documentId);
-      fetchSummary();
-      if (selectedDocument?._id === documentId) {
-        const res = await getDocumentForInspector(token, id, documentId);
-        setSelectedDocument(res.document);
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to start review");
     }
   };
 
@@ -204,7 +135,7 @@ const InspectorReviewPage = () => {
     }
   };
 
-  // ── States ───────────────────────────────────────────────────────────────────
+  // States
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center">
@@ -237,354 +168,6 @@ const InspectorReviewPage = () => {
   if (!summary) return null;
 
   const { applicationId, applicationNumber, applicantName, stats, documents } = summary;
-
-  const DocumentDetailsTab = ({ selectedDocument }: { selectedDocument: any }) => (
-    <div className="space-y-4">
-      <SectionCard title="Document Information">
-        <InfoRow label="File Name" value={selectedDocument.originalFilename} />
-        <InfoRow label="MIME Type" value={selectedDocument.mimeType} />
-        <InfoRow label="File Size" value={`${Math.round(selectedDocument.fileSize / 1024)} KB`} />
-        <InfoRow label="Version" value={selectedDocument.version} />
-        <InfoRow label="Uploaded" value={new Date(selectedDocument.uploadedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })} />
-        <InfoRow label="Processing Status" value={selectedDocument.processingStatus} />
-        <InfoRow label="Verification Status" value={selectedDocument.verificationStatus} />
-      </SectionCard>
-
-      {selectedDocument.extraction && (
-        <SectionCard title="Text Extraction">
-          <InfoRow label="Status" value={selectedDocument.extraction.status} />
-          <InfoRow label="Method" value={selectedDocument.extraction.method} />
-          <InfoRow label="Pages" value={`${selectedDocument.extraction.processedPages}/${selectedDocument.extraction.totalPages}`} />
-          <InfoRow label="Text Size" value={`${Math.round(selectedDocument.extraction.textSize / 1024)} KB`} />
-          {selectedDocument.extraction.error && <InfoRow label="Error" value={selectedDocument.extraction.error} />}
-        </SectionCard>
-      )}
-
-      {selectedDocument.classification && (
-        <SectionCard title="AI Classification">
-          <InfoRow label="Status" value={selectedDocument.classification.status} />
-          <InfoRow label="Expected" value={selectedDocument.classification.expectedRequirementId} />
-          <InfoRow label="Predicted" value={selectedDocument.classification.predictedRequirementName} />
-          <InfoRow label="Confidence" value={`${selectedDocument.classification.confidence}%`} />
-          <InfoRow label="Matches Expected" value={selectedDocument.classification.matchesExpected ? "Yes" : "No"} />
-          <InfoRow label="Explanation" value={selectedDocument.classification.explanation} />
-          {selectedDocument.classification.processingError && <InfoRow label="Error" value={selectedDocument.classification.processingError} />}
-        </SectionCard>
-      )}
-    </div>
-  );
-
-  const DocumentReviewTab = ({ 
-    selectedDocument, 
-    applicationId, 
-    token, 
-    id,
-    handleCompleteReview,
-    handleUpdateFinding,
-  }: any) => (
-    <div className="space-y-4">
-      <SectionCard title="Inspector Review">
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-[#131b2e] mb-2" style={{ fontFamily: "Inter, sans-serif" }}>
-              Overall Review Status
-            </label>
-            <div className="flex items-center gap-3">
-              {["NOT_REVIEWED", "IN_REVIEW", "REVIEWED", "FLAGGED_FOR_CORRECTION"].map((s) => (
-                <button
-                  key={s}
-                  onClick={() => handleCompleteReview(selectedDocument._id, s as "REVIEWED" | "FLAGGED_FOR_CORRECTION", selectedDocument.review?.findings || [], "")}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${selectedDocument.review?.status === s ? "bg-[#b91c1c] text-white" : "bg-white text-[#5b403d] border border-[#e2e8f0]"}`}
-                  style={{ fontFamily: "Inter, sans-serif" }}
-                >
-                  {s.replace("_", " ")}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-[#131b2e] mb-2" style={{ fontFamily: "Inter, sans-serif" }}>
-            Review Notes
-          </label>
-          <textarea className="w-full p-3 border border-[#e2e8f0] rounded-lg text-sm" rows={4} placeholder="Enter review notes..." style={{ fontFamily: "Inter, sans-serif" }} />
-        </div>
-
-        {selectedDocument.validation && selectedDocument.validation.findings.length > 0 && (
-          <div>
-            <label className="block text-sm font-medium text-[#131b2e] mb-2" style={{ fontFamily: "Inter, sans-serif" }}>
-              Finding Reviews
-            </label>
-            <div className="space-y-2">
-              {selectedDocument.validation.findings.map((finding: any) => (
-                <div key={finding.findingId} className="p-3 bg-[#fafbfc] border border-[#e2e8f0] rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-[#131b2e]" style={{ fontFamily: "Inter, sans-serif" }}>{finding.fieldName}</span>
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full ${["NOT_REVIEWED", "REVIEWED", "FLAGGED_FOR_CORRECTION"].includes(selectedDocument.review?.findings?.find((rf: any) => rf.findingId === finding.findingId)?.status || "NOT_REVIEWED") ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-700"}`}>
-                      {selectedDocument.review?.findings?.find((rf: any) => rf.findingId === finding.findingId)?.status || "NOT_REVIEWED"}
-                    </span>
-                  </div>
-                  <p className="text-xs text-[#5b403d] mb-2" style={{ fontFamily: "Inter, sans-serif" }}>{finding.explanation}</p>
-                  <div className="flex gap-2">
-                    {["NOT_REVIEWED", "REVIEWED", "FLAGGED_FOR_CORRECTION"].map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => handleUpdateFinding(selectedDocument._id, finding.findingId, s as any, "")}
-                        className={`px-2 py-1 text-xs font-medium rounded transition-colors ${selectedDocument.review?.findings?.find((rf: any) => rf.findingId === finding.findingId)?.status === s ? "bg-[#b91c1c] text-white" : "bg-white text-[#5b403d] border border-[#e2e8f0]"}`}
-                        style={{ fontFamily: "Inter, sans-serif" }}
-                      >
-                        {s.replace("_", " ")}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </SectionCard>
-      </div>
-    </div>
-  );
-
-  const DocumentDetailModal = ({ 
-    selectedDocument, 
-    onClose, 
-    activeDocTab, 
-    setActiveDocTab,
-    applicationId,
-    token,
-    id,
-    handleCompleteReview,
-    handleUpdateFinding,
-  }: any) => {
-    if (!selectedDocument) return null;
-
-    return (
-      <div className="fixed inset-0 z-50 overflow-y-auto">
-        <div className="flex min-h-full items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-          <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b border-[#e2e8f0] bg-[#fafbfc] rounded-t-2xl">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#b91c1c]/10 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-[#b91c1c]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-[#131b2e]" style={{ fontFamily: "Plus Jakarta Sans, sans-serif" }}>
-                    {selectedDocument.originalFilename}
-                  </h3>
-                  <p className="text-xs text-[#5b403d]" style={{ fontFamily: "Inter, sans-serif" }}>
-                    {selectedDocument.requirementName} • v{selectedDocument.version}
-                  </p>
-                </div>
-              </div>
-              <button onClick={onClose} className="p-2 text-[#5b403d] hover:bg-[#f1f5f9] rounded-lg transition-colors">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-hidden">
-              <div className="border-b border-[#e2e8f0] bg-[#fafbfc]">
-                <nav className="flex gap-1 px-4" aria-label="Document tabs">
-                  <button onClick={() => setActiveDocTab("details")} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors -mb-px border-b-2 ${activeDocTab === "details" ? "text-[#b91c1c] border-[#b91c1c] bg-[#fef2f2]" : "text-[#5b403d] hover:text-[#131b2e] hover:bg-[#f8fafc]"}`} style={{ fontFamily: "Inter, sans-serif" }}>
-                    Details
-                  </button>
-                  <button onClick={() => setActiveDocTab("validation")} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors -mb-px border-b-2 ${activeDocTab === "validation" ? "text-[#b91c1c] border-[#b91c1c] bg-[#fef2f2]" : "text-[#5b403d] hover:text-[#131b2e] hover:bg-[#f8fafc]"}`} style={{ fontFamily: "Inter, sans-serif" }}>
-                    Validation
-                  </button>
-                  <button onClick={() => setActiveDocTab("review")} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors -mb-px border-b-2 ${activeDocTab === "review" ? "text-[#b91c1c] border-[#b91c1c] bg-[#fef2f2]" : "text-[#5b403d] hover:text-[#131b2e] hover:bg-[#f8fafc]"}`} style={{ fontFamily: "Inter, sans-serif" }}>
-                    Review
-                  </button>
-                </nav>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-4">
-                {activeDocTab === "details" && <DocumentDetailsTab selectedDocument={selectedDocument} />}
-                {activeDocTab === "validation" && <DocumentVerificationSummary applicationId={applicationId} isApplicationDraft={false} />}
-                {activeDocTab === "review" && <InspectorDocumentReviewTab selectedDocument={selectedDocument} applicationId={applicationId} token={token} id={id} handleCompleteReview={handleCompleteReview} handleUpdateFinding={handleUpdateFinding} />}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const DocumentDetailsTab = ({ selectedDocument }: { selectedDocument: any }) => (
-    <div className="space-y-4">
-      <SectionCard title="Document Information">
-        <InfoRow label="File Name" value={selectedDocument.originalFilename} />
-        <InfoRow label="MIME Type" value={selectedDocument.mimeType} />
-        <InfoRow label="File Size" value={`${Math.round(selectedDocument.fileSize / 1024)} KB`} />
-        <InfoRow label="Version" value={selectedDocument.version} />
-        <InfoRow label="Uploaded" value={new Date(selectedDocument.uploadedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })} />
-        <InfoRow label="Processing Status" value={selectedDocument.processingStatus} />
-        <InfoRow label="Verification Status" value={selectedDocument.verificationStatus} />
-      </SectionCard>
-
-      {selectedDocument.extraction && (
-        <SectionCard title="Text Extraction">
-          <InfoRow label="Status" value={selectedDocument.extraction.status} />
-          <InfoRow label="Method" value={selectedDocument.extraction.method} />
-          <InfoRow label="Pages" value={`${selectedDocument.extraction.processedPages}/${selectedDocument.extraction.totalPages}`} />
-          <InfoRow label="Text Size" value={`${Math.round(selectedDocument.extraction.textSize / 1024)} KB`} />
-          {selectedDocument.extraction.error && <InfoRow label="Error" value={selectedDocument.extraction.error} />}
-        </SectionCard>
-      )}
-
-      {selectedDocument.classification && (
-        <SectionCard title="AI Classification">
-          <InfoRow label="Status" value={selectedDocument.classification.status} />
-          <InfoRow label="Expected" value={selectedDocument.classification.expectedRequirementId} />
-          <InfoRow label="Predicted" value={selectedDocument.classification.predictedRequirementName} />
-          <InfoRow label="Confidence" value={`${selectedDocument.classification.confidence}%`} />
-          <InfoRow label="Matches Expected" value={selectedDocument.classification.matchesExpected ? "Yes" : "No"} />
-          <InfoRow label="Explanation" value={selectedDocument.classification.explanation} />
-          {selectedDocument.classification.processingError && <InfoRow label="Error" value={selectedDocument.classification.processingError} />}
-        </SectionCard>
-      )}
-    </div>
-  );
-
-  const DocumentDetailModal = ({ 
-    selectedDocument, 
-    onClose, 
-    activeDocTab, 
-    setActiveDocTab,
-    applicationId,
-    token,
-    id,
-    handleCompleteReview,
-    handleUpdateFinding,
-  }: any) => {
-    if (!selectedDocument) return null;
-
-    return (
-      <div className="fixed inset-0 z-50 overflow-y-auto">
-        <div className="flex min-h-full items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-          <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b border-[#e2e8f0] bg-[#fafbfc] rounded-t-2xl">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#b91c1c]/10 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-[#b91c1c]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-[#131b2e]" style={{ fontFamily: "Plus Jakarta Sans, sans-serif" }}>
-                    {selectedDocument.originalFilename}
-                  </h3>
-                  <p className="text-xs text-[#5b403d]" style={{ fontFamily: "Inter, sans-serif" }}>
-                    {selectedDocument.requirementName} • v{selectedDocument.version}
-                  </p>
-                </div>
-              </div>
-              <button onClick={onClose} className="p-2 text-[#5b403d] hover:bg-[#f1f5f9] rounded-lg transition-colors">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-hidden">
-              <div className="border-b border-[#e2e8f0] bg-[#fafbfc]">
-                <nav className="flex gap-1 px-4" aria-label="Document tabs">
-                  <button onClick={() => setActiveDocTab("details")} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors -mb-px border-b-2 ${activeDocTab === "details" ? "text-[#b91c1c] border-[#b91c1c] bg-[#fef2f2]" : "text-[#5b403d] hover:text-[#131b2e] hover:bg-[#f8fafc]"}`} style={{ fontFamily: "Inter, sans-serif" }}>
-                    Details
-                  </button>
-                  <button onClick={() => setActiveDocTab("validation")} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors -mb-px border-b-2 ${activeDocTab === "validation" ? "text-[#b91c1c] border-[#b91c1c] bg-[#fef2f2]" : "text-[#5b403d] hover:text-[#131b2e] hover:bg-[#f8fafc]"}`} style={{ fontFamily: "Inter, sans-serif" }}>
-                    Validation
-                  </button>
-                  <button onClick={() => setActiveDocTab("review")} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors -mb-px border-b-2 ${activeDocTab === "review" ? "text-[#b91c1c] border-[#b91c1c] bg-[#fef2f2]" : "text-[#5b403d] hover:text-[#131b2e] hover:bg-[#f8fafc]"}`} style={{ fontFamily: "Inter, sans-serif" }}>
-                    Review
-                  </button>
-                </nav>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-4">
-                {activeDocTab === "details" && <DocumentDetailsTab selectedDocument={selectedDocument} />}
-                {activeDocTab === "validation" && <DocumentVerificationSummary applicationId={applicationId} isApplicationDraft={false} />}
-                {activeDocTab === "review" && <InspectorDocumentReviewTab selectedDocument={selectedDocument} applicationId={applicationId} token={token} id={id} handleCompleteReview={handleCompleteReview} handleUpdateFinding={handleUpdateFinding} />}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const DocumentDetailsTab = ({ selectedDocument }: { selectedDocument: any }) => (
-    <div className="space-y-4">
-      <SectionCard title="Document Information">
-        <InfoRow label="File Name" value={selectedDocument.originalFilename} />
-        <InfoRow label="MIME Type" value={selectedDocument.mimeType} />
-        <InfoRow label="File Size" value={`${Math.round(selectedDocument.fileSize / 1024)} KB`} />
-        <InfoRow label="Version" value={selectedDocument.version} />
-        <InfoRow label="Uploaded" value={new Date(selectedDocument.uploadedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })} />
-        <InfoRow label="Processing Status" value={selectedDocument.processingStatus} />
-        <InfoRow label="Verification Status" value={selectedDocument.verificationStatus} />
-      </SectionCard>
-
-      {selectedDocument.extraction && (
-        <SectionCard title="Text Extraction">
-          <InfoRow label="Status" value={selectedDocument.extraction.status} />
-          <InfoRow label="Method" value={selectedDocument.extraction.method} />
-          <InfoRow label="Pages" value={`${selectedDocument.extraction.processedPages}/${selectedDocument.extraction.totalPages}`} />
-          <InfoRow label="Text Size" value={`${Math.round(selectedDocument.extraction.textSize / 1024)} KB`} />
-          {selectedDocument.extraction.error && <InfoRow label="Error" value={selectedDocument.extraction.error} />}
-        </SectionCard>
-      )}
-
-      {selectedDocument.classification && (
-        <SectionCard title="AI Classification">
-          <InfoRow label="Status" value={selectedDocument.classification.status} />
-          <InfoRow label="Expected" value={selectedDocument.classification.expectedRequirementId} />
-          <InfoRow label="Predicted" value={selectedDocument.classification.predictedRequirementName} />
-          <InfoRow label="Confidence" value={`${selectedDocument.classification.confidence}%`} />
-          <InfoRow label="Matches Expected" value={selectedDocument.classification.matchesExpected ? "Yes" : "No"} />
-          <InfoRow label="Explanation" value={selectedDocument.classification.explanation} />
-          {selectedDocument.classification.processingError && <InfoRow label="Error" value={selectedDocument.classification.processingError} />}
-        </SectionCard>
-      )}
-    </div>
-  );
-
-  const DocumentRow = ({ doc, onClick, getReviewStatusConfig, getValidationStatusConfig, getVerificationStatusConfig }: any) => (
-    <div key={doc.documentId} className="p-4 hover:bg-[#fafbfc] transition-colors cursor-pointer" onClick={() => onClick(doc)}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white rounded-lg border border-[#e2e8f0] flex items-center justify-center">
-            <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-[#131b2e]" style={{ fontFamily: "Inter, sans-serif" }}>
-              {doc.requirementName}
-            </p>
-            <p className="text-xs text-[#5b403d]" style={{ fontFamily: "Inter, sans-serif" }}>
-              {doc.required ? "Mandatory" : "Optional"} • {doc.originalFilename}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <ReviewStatusBadge status={doc.reviewStatus} />
-          <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded ${getValidationStatusConfig(doc.validationStatus).bg} ${getValidationStatusConfig(doc.validationStatus).text}`}>
-            {getValidationStatusConfig(doc.validationStatus).label}
-          </span>
-          <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded ${getVerificationStatusConfig(doc.verificationStatus).bg} ${getVerificationStatusConfig(doc.verificationStatus).text}`}>
-            {getVerificationStatusConfig(doc.verificationStatus).label}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-[#f8fafc]">
@@ -681,12 +264,18 @@ const InspectorReviewPage = () => {
             {documents.map((doc: any) => (
               <DocumentRow
                 key={doc.documentId}
-                doc={doc}
+                doc={{
+                  documentId: doc.documentId,
+                  requirementName: doc.requirementName,
+                  required: doc.required,
+                  originalFilename: doc.originalFilename,
+                  reviewStatus: doc.reviewStatus,
+                  validationStatus: doc.validationStatus,
+                  verificationStatus: doc.verificationStatus,
+                }}
                 onClick={handleDocumentClick}
-                getReviewStatusConfig={getReviewStatusConfig}
                 getValidationStatusConfig={getValidationStatusConfig}
                 getVerificationStatusConfig={getVerificationStatusConfig}
-                ReviewStatusBadge={ReviewStatusBadge}
               />
             ))}
             {documents.length === 0 && (
@@ -704,12 +293,12 @@ const InspectorReviewPage = () => {
             onClose={() => setSelectedDocument(null)}
             activeDocTab={activeDocTab}
             setActiveDocTab={setActiveDocTab}
-            applicationId={applicationId}
-            token={token}
-            id={id}
-            selectedDocumentReview={selectedDocument.review}
+            applicationId={applicationId || ""}
+            token={getAuthToken(token)}
+            id={id || ""}
             handleCompleteReview={handleCompleteReview}
             handleUpdateFinding={handleUpdateFinding}
+            requirementName={documents.find((d: any) => d.documentId === selectedDocument._id)?.requirementName || selectedDocument.requirementId || ""}
           />
         )}
       </main>

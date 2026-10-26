@@ -11,6 +11,7 @@ interface DocumentDetailModalProps {
   id: string;
   handleCompleteReview: (documentId: string, status: "REVIEWED" | "FLAGGED_FOR_CORRECTION", findings: ReviewFinding[], overallNote?: string) => Promise<void>;
   handleUpdateFinding: (documentId: string, findingId: string, status: ReviewStatus, note?: string) => Promise<void>;
+  requirementName?: string;
 }
 
 export const DocumentDetailModal = ({
@@ -23,6 +24,7 @@ export const DocumentDetailModal = ({
   id,
   handleCompleteReview,
   handleUpdateFinding,
+  requirementName,
 }: DocumentDetailModalProps) => {
   if (!selectedDocument) return null;
 
@@ -43,7 +45,7 @@ export const DocumentDetailModal = ({
                   {selectedDocument.originalFilename}
                 </h3>
                 <p className="text-xs text-[#5b403d]" style={{ fontFamily: "Inter, sans-serif" }}>
-                  {selectedDocument.requirementName} • v{selectedDocument.version}
+                  {requirementName || selectedDocument.requirementId} • v{selectedDocument.version}
                 </p>
               </div>
             </div>

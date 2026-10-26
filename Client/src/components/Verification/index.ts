@@ -12,3 +12,4 @@ export { DocumentRow } from "./DocumentRow";
 export { InfoRow } from "./InfoRow";
 export { SectionCard } from "./SectionCard";
 export { InspectorDocumentReviewTab } from "./InspectorDocumentReviewTab";
+export { ValidationFindingsSummary } from "./ValidationFindingsSummary";

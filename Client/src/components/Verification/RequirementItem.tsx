@@ -2,6 +2,7 @@ import type { ChecklistItem, Document } from "../../types/checklist";
 import { StatusBadge } from "./StatusBadge";
 import { DocumentDetails } from "./DocumentDetails";
 import { getValidationStatusConfig, getProcessingStatusConfig, getVerificationStatusConfig, getItemStatusConfig } from "../../utils/verificationUtils";
+// validationConfig is used for the validation status display
 
 interface RequirementItemProps {
   item: ChecklistItem;
@@ -92,7 +93,7 @@ export const RequirementItem = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </summary>
-          <DocumentDetails doc={doc} validationConfig={validationConfig} />
+          <DocumentDetails doc={doc} />
         </details>
       )}
     </div>

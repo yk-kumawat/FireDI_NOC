@@ -2,6 +2,8 @@ import type {
   Document,
   DocumentVerificationStatus,
   ValidationOverallStatus,
+  ValidationFindingStatus,
+  ReviewStatus,
 } from "../types/checklist";
 
 export const getVerificationStatusConfig = (status: DocumentVerificationStatus) => {
@@ -25,6 +27,23 @@ export const getValidationStatusConfig = (status: ValidationOverallStatus | "not
     not_validated: { bg: "bg-slate-100", text: "text-slate-700", label: "Not Validated" },
   };
   return configs[status] || configs.not_validated;
+};
+
+export const getFindingStatusConfig = (status: ValidationFindingStatus | ReviewStatus) => {
+  const configs: Record<string, { bg: string; text: string; label: string; dot: string }> = {
+    passed: { bg: "bg-green-100", text: "text-green-700", label: "Passed", dot: "bg-green-500" },
+    mismatch_found: { bg: "bg-red-100", text: "text-red-700", label: "Mismatch", dot: "bg-red-500" },
+    needs_review: { bg: "bg-amber-100", text: "text-amber-700", label: "Needs Review", dot: "bg-amber-500" },
+    insufficient_data: { bg: "bg-blue-100", text: "text-blue-700", label: "Insufficient Data", dot: "bg-blue-500" },
+    not_applicable: { bg: "bg-slate-100", text: "text-slate-700", label: "Not Applicable", dot: "bg-slate-500" },
+    failed: { bg: "bg-red-100", text: "text-red-700", label: "Failed", dot: "bg-red-500" },
+    category_mismatch: { bg: "bg-orange-100", text: "text-orange-700", label: "Category Mismatch", dot: "bg-orange-500" },
+    NOT_REVIEWED: { bg: "bg-slate-100", text: "text-slate-700", label: "Not Reviewed", dot: "bg-slate-500" },
+    IN_REVIEW: { bg: "bg-blue-100", text: "text-blue-700", label: "In Review", dot: "bg-blue-500" },
+    REVIEWED: { bg: "bg-green-100", text: "text-green-700", label: "Reviewed", dot: "bg-green-500" },
+    FLAGGED_FOR_CORRECTION: { bg: "bg-amber-100", text: "text-amber-700", label: "Flagged for Correction", dot: "bg-amber-500" },
+  };
+  return configs[status] || configs.NOT_REVIEWED;
 };
 
 export const getProcessingStatusConfig = (status: Document["processingStatus"]) => {

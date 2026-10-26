@@ -9,6 +9,7 @@ import {
   getExtraction,
   classifyDocument,
   getClassification,
+  replaceDocument,
 } from "../../services/documentApi";
 import { validateDocument, getValidation } from "../../services/validationApi";
 import { ValidationResults } from "../Validation/ValidationResults";
@@ -46,6 +47,7 @@ export const DocumentUploadModal = ({
   const [extractionResults, setExtractionResults] = useState<Record<string, TextExtractionResult>>({});
   const [classificationResults, setClassificationResults] = useState<Record<string, DocumentClassification>>({});
   const [validatingDocId, setValidatingDocId] = useState<string | null>(null);
+  const [replacingDocId, setReplacingDocId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchDocuments = useCallback(async () => {
@@ -68,6 +70,82 @@ export const DocumentUploadModal = ({
     }
   }, [isOpen, fetchDocuments]);
 
+  // Polling for extraction completion
+  useEffect(() => {
+    if (!isOpen) return;
+    const extractingDocs = documents.filter(
+      (d) => d.extraction && (d.extraction.status === "PROCESSING" || d.extraction.status === "QUEUED")
+    );
+    if (extractingDocs.length === 0) return;
+
+    const interval = setInterval(async () => {
+      for (const doc of extractingDocs) {
+        try {
+          const res = await getExtraction(token, applicationId, doc._id);
+          if (res.extraction.status === "COMPLETED" || res.extraction.status === "PARTIAL" || res.extraction.status === "FAILED") {
+            setExtractionResults((prev) => ({ ...prev, [doc._id]: res.extraction }));
+            // Also update the document in the list
+            setDocuments((prev) => prev.map((d) => (d._id === doc._id ? { ...d, extraction: res.extraction } : d)));
+          }
+        } catch (err) {
+          console.error(`Polling extraction failed for ${doc._id}:`, err);
+        }
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [isOpen, documents, token, applicationId]);
+
+  // Polling for classification completion
+  useEffect(() => {
+    if (!isOpen) return;
+    const classifyingDocs = documents.filter(
+      (d) => d.classification && (d.classification.status === "PROCESSING" || d.classification.status === "QUEUED")
+    );
+    if (classifyingDocs.length === 0) return;
+
+    const interval = setInterval(async () => {
+      for (const doc of classifyingDocs) {
+        try {
+          const res = await getClassification(token, applicationId, doc._id);
+          if (res.classification.status === "COMPLETED" || res.classification.status === "FAILED") {
+            setClassificationResults((prev) => ({ ...prev, [doc._id]: res.classification }));
+            setDocuments((prev) => prev.map((d) => (d._id === doc._id ? { ...d, classification: res.classification } : d)));
+          }
+        } catch (err) {
+          console.error(`Polling classification failed for ${doc._id}:`, err);
+        }
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [isOpen, documents, token, applicationId]);
+
+  // Polling for validation completion
+  useEffect(() => {
+    if (!isOpen) return;
+    const validatingDocs = documents.filter(
+      (d) => d.validation === undefined && d.classification?.status === "COMPLETED" && d.extraction?.status === "COMPLETED"
+    );
+    if (validatingDocs.length === 0) return;
+
+    const interval = setInterval(async () => {
+      for (const doc of validatingDocs) {
+        try {
+          const res = await getValidation(token, applicationId, doc._id);
+          setDocuments((prev) => prev.map((d) => (d._id === doc._id ? { ...d, validation: res.validation } : d)));
+        } catch (err) {
+          // Validation might not exist yet, ignore 404
+          if (!String(err).includes("404")) {
+            console.error(`Polling validation failed for ${doc._id}:`, err);
+          }
+        }
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [isOpen, documents, token, applicationId]);
+
   const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -86,7 +164,12 @@ export const DocumentUploadModal = ({
     }
 
     setError("");
-    uploadFile(file);
+
+    if (replacingDocId) {
+      replaceFile(replacingDocId, file);
+    } else {
+      uploadFile(file);
+    }
   };
 
   const uploadFile = async (file: File) => {
@@ -102,6 +185,48 @@ export const DocumentUploadModal = ({
       setError((err as Error).message || "Failed to upload document");
     } finally {
       setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const replaceFile = async (documentId: string, file: File) => {
+    setReplacingDocId(documentId);
+    setError("");
+
+    try {
+      const res = await replaceDocument(token, applicationId, documentId, file);
+      // Replace the document in the list, clearing old extraction/classification/validation
+      setDocuments((prev) =>
+        prev.map((d) =>
+          d._id === documentId
+            ? { ...res.document, extraction: undefined, classification: undefined, validation: undefined }
+            : d
+        )
+      );
+      // Clear cached results for this document
+      setExtractionResults((prev) => {
+        const next = { ...prev };
+        delete next[documentId];
+        return next;
+      });
+      setClassificationResults((prev) => {
+        const next = { ...prev };
+        delete next[documentId];
+        return next;
+      });
+      setSuccessMsg(`"${file.name}" replaced successfully`);
+      setTimeout(() => setSuccessMsg(""), 4000);
+      onUploadSuccess?.(
+        documents.map((d) =>
+          d._id === documentId ? { ...res.document, extraction: undefined, classification: undefined, validation: undefined } : d
+        )
+      );
+    } catch (err: unknown) {
+      setError((err as Error).message || "Failed to replace document");
+    } finally {
+      setReplacingDocId(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -610,10 +735,14 @@ export const DocumentUploadModal = ({
                         {!isReadOnly && (
                           <>
                             <button
-                              onClick={() => fileInputRef.current?.click()}
+                              onClick={() => {
+                                // Store the document ID to replace, then trigger file input
+                                setReplacingDocId(doc._id);
+                                fileInputRef.current?.click();
+                              }}
                               className="p-2 text-[#5b403d] hover:bg-[#f1f5f9] rounded-lg transition-colors"
                               title="Replace"
-                              disabled={isLoading || isUploading}
+                              disabled={isLoading || isUploading || replacingDocId !== null}
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />

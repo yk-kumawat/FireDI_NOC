@@ -69,16 +69,29 @@ export const DocumentVerificationSummary = ({
 
     const docItems = checklist.items.filter((item) => item.type === "DOCUMENT");
     const requiredDocItems = docItems.filter((item) => item.required);
+    const optionalDocItems = docItems.filter((item) => !item.required);
+    const infoItems = checklist.items.filter((item) => item.type === "INFORMATION");
 
     let uploaded = 0;
     let pendingReview = 0;
     let verified = 0;
     let rejected = 0;
     let notUploaded = 0;
+    let optionalUploaded = 0;
+    let optionalNotUploaded = 0;
     let validationPassed = 0;
     let validationMismatch = 0;
     let validationNeedsReview = 0;
-    let awaitingProcessing = 0;
+    let validationInsufficientData = 0;
+    let validationCategoryMismatch = 0;
+    let validationFailed = 0;
+    let awaitingExtraction = 0;
+    let awaitingClassification = 0;
+    let awaitingValidation = 0;
+    let extractionCompleted = 0;
+    let classificationCompleted = 0;
+    let extractionFailed = 0;
+    let classificationFailed = 0;
 
     for (const item of requiredDocItems) {
       const docs = documentsMap[item.requirementId] || [];
@@ -103,10 +116,38 @@ export const DocumentVerificationSummary = ({
           break;
       }
 
+      // Processing pipeline status
       if (latestDoc.processingStatus === "PROCESSING" || latestDoc.processingStatus === "UPLOADED") {
-        awaitingProcessing++;
+        awaitingValidation++;
       }
 
+      // Text extraction status
+      if (latestDoc.extraction) {
+        if (latestDoc.extraction.status === "COMPLETED" || latestDoc.extraction.status === "PARTIAL") {
+          extractionCompleted++;
+        } else if (latestDoc.extraction.status === "PROCESSING" || latestDoc.extraction.status === "QUEUED") {
+          awaitingExtraction++;
+        } else if (latestDoc.extraction.status === "FAILED") {
+          extractionFailed++;
+        }
+      } else {
+        awaitingExtraction++;
+      }
+
+      // AI classification status
+      if (latestDoc.classification) {
+        if (latestDoc.classification.status === "COMPLETED") {
+          classificationCompleted++;
+        } else if (latestDoc.classification.status === "PROCESSING" || latestDoc.classification.status === "QUEUED") {
+          awaitingClassification++;
+        } else if (latestDoc.classification.status === "FAILED") {
+          classificationFailed++;
+        }
+      } else {
+        awaitingClassification++;
+      }
+
+      // Validation status
       if (latestDoc.validation) {
         switch (latestDoc.validation.overallStatus) {
           case "passed":
@@ -118,13 +159,40 @@ export const DocumentVerificationSummary = ({
           case "needs_review":
             validationNeedsReview++;
             break;
+          case "insufficient_data":
+            validationInsufficientData++;
+            break;
+          case "category_mismatch":
+            validationCategoryMismatch++;
+            break;
+          case "failed":
+            validationFailed++;
+            break;
         }
+      } else if (latestDoc.classification?.status === "COMPLETED" && latestDoc.extraction?.status === "COMPLETED") {
+        // Ready for validation but not yet validated
+        awaitingValidation++;
+      }
+    }
+
+    // Optional documents
+    for (const item of optionalDocItems) {
+      const docs = documentsMap[item.requirementId] || [];
+      const latestDoc = docs[0];
+      if (latestDoc) {
+        optionalUploaded++;
+      } else {
+        optionalNotUploaded++;
       }
     }
 
     return {
       totalRequired: requiredDocItems.length,
+      totalOptional: optionalDocItems.length,
+      totalInfo: infoItems.length,
       uploaded,
+      optionalUploaded,
+      optionalNotUploaded,
       pendingReview,
       verified,
       rejected,
@@ -132,7 +200,16 @@ export const DocumentVerificationSummary = ({
       validationPassed,
       validationMismatch,
       validationNeedsReview,
-      awaitingProcessing,
+      validationInsufficientData,
+      validationCategoryMismatch,
+      validationFailed,
+      awaitingExtraction,
+      awaitingClassification,
+      awaitingValidation,
+      extractionCompleted,
+      classificationCompleted,
+      extractionFailed,
+      classificationFailed,
     };
   };
 
@@ -199,15 +276,39 @@ export const DocumentVerificationSummary = ({
 
       {/* Summary Stats */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-5">
-          <StatCard label="Required" value={stats.totalRequired} color="slate" />
-          <StatCard label="Uploaded" value={stats.uploaded} color="blue" />
-          <StatCard label="Awaiting Processing" value={stats.awaitingProcessing} color="amber" />
-          <StatCard label="Pending Review" value={stats.pendingReview} color="amber" />
-          <StatCard label="Verified" value={stats.verified} color="green" />
-          <StatCard label="Rejected" value={stats.rejected} color="red" />
-          <StatCard label="Validation Passed" value={stats.validationPassed} color="green" />
-          <StatCard label="Missing" value={stats.notUploaded} color="slate" />
+        <div className="space-y-4 mb-5">
+          {/* Row 1: Document Requirements Overview */}
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+            <StatCard label="Required Docs" value={stats.totalRequired} color="slate" subtitle={stats.notUploaded > 0 ? `${stats.notUploaded} missing` : "All uploaded"} />
+            <StatCard label="Uploaded" value={stats.uploaded} color="blue" subtitle={stats.uploaded === stats.totalRequired && stats.totalRequired > 0 ? "Complete" : "In progress"} />
+            <StatCard label="Optional Docs" value={stats.totalOptional} color="purple" subtitle={`${stats.optionalUploaded} uploaded`} />
+            <StatCard label="Info Requirements" value={stats.totalInfo} color="purple" subtitle="No upload needed" />
+            <StatCard label="Awaiting Extraction" value={stats.awaitingExtraction} color="amber" subtitle={stats.extractionFailed > 0 ? `${stats.extractionFailed} failed` : undefined} />
+            <StatCard label="Awaiting Classification" value={stats.awaitingClassification} color="amber" subtitle={stats.classificationFailed > 0 ? `${stats.classificationFailed} failed` : undefined} />
+            <StatCard label="Ready for Validation" value={stats.awaitingValidation} color="blue" subtitle={stats.validationPassed + stats.validationMismatch + stats.validationNeedsReview + stats.validationInsufficientData + stats.validationCategoryMismatch + stats.validationFailed > 0 ? "Some validated" : undefined} />
+          </div>
+
+          {/* Row 2: Verification & Validation Status */}
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+            <StatCard label="Extraction Done" value={stats.extractionCompleted} color="green" subtitle={stats.extractionCompleted === stats.uploaded && stats.uploaded > 0 ? "All complete" : undefined} />
+            <StatCard label="Classification Done" value={stats.classificationCompleted} color="green" subtitle={stats.classificationCompleted === stats.uploaded && stats.uploaded > 0 ? "All complete" : undefined} />
+            <StatCard label="Verified" value={stats.verified} color="green" subtitle="Inspector verified" />
+            <StatCard label="Pending Review" value={stats.pendingReview} color="amber" subtitle="Awaiting inspector" />
+            <StatCard label="Rejected" value={stats.rejected} color="red" subtitle="Needs correction" />
+            <StatCard label="Validation Passed" value={stats.validationPassed} color="green" subtitle="All checks passed" />
+            <StatCard label="Mismatches" value={stats.validationMismatch} color="red" subtitle="Needs attention" />
+            <StatCard label="Needs Review" value={stats.validationNeedsReview} color="amber" subtitle="Ambiguous findings" />
+          </div>
+
+          {/* Row 3: Validation Issues Detail */}
+          {(stats.validationInsufficientData > 0 || stats.validationCategoryMismatch > 0 || stats.validationFailed > 0) && (
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              <StatCard label="Insufficient Data" value={stats.validationInsufficientData} color="blue" subtitle="Missing fields" />
+              <StatCard label="Category Mismatch" value={stats.validationCategoryMismatch} color="orange" subtitle="Wrong doc type" />
+              <StatCard label="Validation Failed" value={stats.validationFailed} color="red" subtitle="Processing error" />
+              <StatCard label="Missing Required" value={stats.notUploaded} color="slate" subtitle="Not uploaded" />
+            </div>
+          )}
         </div>
       )}
 
