@@ -4,6 +4,7 @@ import applicantRoutes from "./routes/applicantRoutes.js";
 import inspectorRoutes from "./routes/inspectorRoutes.js";
 import applicationRoutes from "./routes/applicationRoutes.js";
 import documentRoutes from "./routes/documentRoutes.js";
+import validationRoutes from "./routes/validationRoutes.js";
 
 const app = express();
 
@@ -65,6 +66,7 @@ app.use("/api/applicant", applicantRoutes);
 app.use("/api/inspector", inspectorRoutes);
 app.use("/api/applications", applicationRoutes);
 app.use("/api/applications", documentRoutes);
+app.use("/api/applications", validationRoutes);
 
 // 404 handler
 app.use((_req, res) => {

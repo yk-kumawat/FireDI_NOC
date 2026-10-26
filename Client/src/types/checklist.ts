@@ -18,6 +18,73 @@ export type TextExtractionMethod = "EMBEDDED" | "OCR" | "MIXED";
 
 export type DocumentClassificationStatus = "NOT_STARTED" | "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED";
 
+// ─── Validation Types ──────────────────────────────────────────────────────────
+export type ValidationOverallStatus =
+  | "passed"
+  | "mismatch_found"
+  | "needs_review"
+  | "insufficient_data"
+  | "category_mismatch"
+  | "failed";
+
+export type ValidationFindingStatus =
+  | "passed"
+  | "mismatch_found"
+  | "needs_review"
+  | "insufficient_data"
+  | "not_applicable"
+  | "failed"
+  | "category_mismatch";
+
+export type ComparisonMethod =
+  | "exact"
+  | "normalized"
+  | "fuzzy_similarity"
+  | "date_comparison"
+  | "numeric_comparison"
+  | "registration_number"
+  | "address_comparison"
+  | "boolean_match"
+  | "not_compared";
+
+export interface ValidationFinding {
+  findingId: string;
+  fieldName: string;
+  description: string;
+  ruleId: string;
+  status: ValidationFindingStatus;
+  comparisonMethod: ComparisonMethod;
+  documentValue: string | number | boolean | null;
+  applicationValue: string | number | boolean | null;
+  normalizedDocumentValue?: string | number | boolean | null;
+  normalizedApplicationValue?: string | number | boolean | null;
+  explanation: string;
+  confidence?: number;
+  isRequired: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+export interface DocumentValidationResult {
+  _id?: string;
+  applicationId: string;
+  documentId: string;
+  extractionId?: string;
+  classificationId?: string;
+  expectedRequirementId: string;
+  predictedRequirementId?: string;
+  overallStatus: ValidationOverallStatus;
+  findings: ValidationFinding[];
+  ruleSetVersion: string;
+  engineVersion: string;
+  validatedAt: string;
+  initiatedBy: string;
+  processingErrors?: string[];
+  isRevalidation: boolean;
+  previousValidationId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface ExtractedField {
   name: string;
   value: string | number | null;
@@ -97,6 +164,7 @@ export interface Document {
   createdAt: string;
   extraction?: TextExtractionResult;
   classification?: DocumentClassification;
+  validation?: DocumentValidationResult;
 }
 
 export interface ChecklistItem {

@@ -10,6 +10,8 @@ import {
   classifyDocument,
   getClassification,
 } from "../../services/documentApi";
+import { validateDocument, getValidation } from "../../services/validationApi";
+import { ValidationResults } from "../Validation/ValidationResults";
 
 interface DocumentUploadModalProps {
   isOpen: boolean;
@@ -43,6 +45,7 @@ export const DocumentUploadModal = ({
   const [classifyingDocId, setClassifyingDocId] = useState<string | null>(null);
   const [extractionResults, setExtractionResults] = useState<Record<string, TextExtractionResult>>({});
   const [classificationResults, setClassificationResults] = useState<Record<string, DocumentClassification>>({});
+  const [validatingDocId, setValidatingDocId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchDocuments = useCallback(async () => {
@@ -188,6 +191,44 @@ export const DocumentUploadModal = ({
       setClassificationResults((prev) => ({ ...prev, [document._id]: res.classification }));
     } catch (err: any) {
       setError(err.message || "Failed to get classification result");
+    }
+  };
+
+  const handleValidateDocument = async (document: Document) => {
+    if (validatingDocId === document._id) return;
+
+    setValidatingDocId(document._id);
+    setError("");
+
+    try {
+      const res = await validateDocument(token, applicationId, document._id);
+      // Update the document with validation result
+      setDocuments((prev) =>
+        prev.map((d) =>
+          d._id === document._id ? { ...d, validation: res.validation } : d
+        )
+      );
+      setSuccessMsg("Document validation completed.");
+      setTimeout(() => setSuccessMsg(""), 4000);
+    } catch (err: any) {
+      setError(err.message || "Failed to validate document");
+    } finally {
+      setValidatingDocId(null);
+    }
+  };
+
+  const handleGetValidation = async (document: Document) => {
+    setError("");
+
+    try {
+      const res = await getValidation(token, applicationId, document._id);
+      setDocuments((prev) =>
+        prev.map((d) =>
+          d._id === document._id ? { ...d, validation: res.validation } : d
+        )
+      );
+    } catch (err: any) {
+      setError(err.message || "Failed to get validation result");
     }
   };
 
@@ -512,6 +553,60 @@ export const DocumentUploadModal = ({
                             </svg>
                           )}
                         </button>
+                        {/* Validate Document Button */}
+                        <button
+                          onClick={() => {
+                            const existingExtraction = doc.extraction || extractionResults[doc._id];
+                            const existingClassification = doc.classification || classificationResults[doc._id];
+                            const existingValidation = doc.validation;
+                            const canValidate = (existingExtraction?.status === "COMPLETED" || existingExtraction?.status === "PARTIAL") &&
+                              (existingClassification?.status === "COMPLETED");
+                            const isValidating = validatingDocId === doc._id;
+                            
+                            if (!canValidate && !isValidating && !existingValidation) {
+                              setError("Text extraction and AI classification must be completed first");
+                              return;
+                            }
+                            
+                            if (existingValidation && !isValidating) {
+                              handleGetValidation(doc);
+                            } else if (isValidating) {
+                              // Do nothing, already validating
+                            } else {
+                              handleValidateDocument(doc);
+                            }
+                          }}
+                          disabled={isLoading || isUploading || validatingDocId === doc._id || 
+                            !((doc.extraction?.status === "COMPLETED" || doc.extraction?.status === "PARTIAL" || extractionResults[doc._id]?.status === "COMPLETED" || extractionResults[doc._id]?.status === "PARTIAL") &&
+                              (doc.classification?.status === "COMPLETED" || classificationResults[doc._id]?.status === "COMPLETED"))}
+                          className={`p-2 rounded-lg transition-colors ${
+                            validatingDocId === doc._id
+                              ? "bg-amber-100 text-amber-700 cursor-wait"
+                              : doc.validation || (doc.extraction?.status === "COMPLETED" && doc.classification?.status === "COMPLETED")
+                              ? "text-[#5b403d] hover:bg-[#f1f5f9]"
+                              : "text-slate-400 hover:bg-slate-100 cursor-not-allowed opacity-60"
+                          }`}
+                          title={
+                            validatingDocId === doc._id
+                              ? "Validating..."
+                              : doc.validation
+                              ? "View Validation"
+                              : (doc.extraction?.status === "COMPLETED" && doc.classification?.status === "COMPLETED")
+                              ? "Validate Document"
+                              : "Complete extraction and classification first"
+                          }
+                        >
+                          {validatingDocId === doc._id ? (
+                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                            </svg>
+                          )}
+                        </button>
                         {!isReadOnly && (
                           <>
                             <button
@@ -697,6 +792,22 @@ export const DocumentUploadModal = ({
                               Start Classification
                             </button>
                           )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Validation Results */}
+                    {(() => {
+                      const validation = doc.validation;
+                      if (!validation) return null;
+
+                      return (
+                        <div className="mt-3 pt-3 border-t border-[#e2e8f0]">
+                          <ValidationResults
+                            applicationId={applicationId}
+                            document={doc}
+                            isReadOnly={isReadOnly}
+                          />
                         </div>
                       );
                     })()}

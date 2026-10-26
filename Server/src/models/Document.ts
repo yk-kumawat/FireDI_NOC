@@ -106,6 +106,63 @@ export interface IDocumentClassification {
   modelUsed?: string;
 }
 
+// ─── Validation Result Types ───────────────────────────────────────────────────
+export enum ValidationOverallStatus {
+  PASSED = "passed",
+  MISMATCH_FOUND = "mismatch_found",
+  NEEDS_REVIEW = "needs_review",
+  INSUFFICIENT_DATA = "insufficient_data",
+  CATEGORY_MISMATCH = "category_mismatch",
+  FAILED = "failed",
+}
+
+export enum ValidationFindingStatus {
+  PASSED = "passed",
+  MISMATCH_FOUND = "mismatch_found",
+  NEEDS_REVIEW = "needs_review",
+  INSUFFICIENT_DATA = "insufficient_data",
+  NOT_APPLICABLE = "not_applicable",
+  FAILED = "failed",
+}
+
+export interface IValidationFinding {
+  findingId: string;
+  fieldName: string;
+  description: string;
+  ruleId: string;
+  status: ValidationFindingStatus;
+  comparisonMethod: string;
+  documentValue: mongoose.Schema.Types.Mixed;
+  applicationValue: mongoose.Schema.Types.Mixed;
+  normalizedDocumentValue?: mongoose.Schema.Types.Mixed;
+  normalizedApplicationValue?: mongoose.Schema.Types.Mixed;
+  explanation: string;
+  confidence?: number;
+  isRequired: boolean;
+  metadata?: mongoose.Schema.Types.Mixed;
+}
+
+export interface IDocumentValidationResult {
+  _id?: mongoose.Types.ObjectId;
+  applicationId: mongoose.Types.ObjectId;
+  documentId: mongoose.Types.ObjectId;
+  extractionId?: mongoose.Types.ObjectId;
+  classificationId?: mongoose.Types.ObjectId;
+  expectedRequirementId: string;
+  predictedRequirementId?: string;
+  overallStatus: ValidationOverallStatus;
+  findings: IValidationFinding[];
+  ruleSetVersion: string;
+  engineVersion: string;
+  validatedAt: Date;
+  initiatedBy: mongoose.Types.ObjectId;
+  processingErrors?: string[];
+  isRevalidation: boolean;
+  previousValidationId?: mongoose.Types.ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface IDocument extends MongooseDocument {
   applicationId: mongoose.Types.ObjectId;
   applicantId: mongoose.Types.ObjectId;
@@ -130,6 +187,8 @@ export interface IDocument extends MongooseDocument {
   extraction?: ITextExtractionResult;
   // AI Classification & Extraction fields
   classification?: IDocumentClassification;
+  // Document Validation fields
+  validation?: IDocumentValidationResult;
 }
 
 // Sub-schema for extracted pages
@@ -207,6 +266,80 @@ const documentClassificationSchema = new Schema<IDocumentClassification>(
     modelUsed: { type: String, trim: true },
   },
   { _id: false }
+);
+
+// ─── Validation Result Sub-schemas ──────────────────────────────────────────────
+const validationFindingSchema = new Schema<IValidationFinding>(
+  {
+    findingId: { type: String, required: true, trim: true },
+    fieldName: { type: String, required: true, trim: true },
+    description: { type: String, required: true, trim: true },
+    ruleId: { type: String, required: true, trim: true },
+    status: {
+      type: String,
+      enum: Object.values(ValidationFindingStatus),
+      required: true,
+    },
+    comparisonMethod: { type: String, required: true, trim: true },
+    documentValue: { type: Schema.Types.Mixed },
+    applicationValue: { type: Schema.Types.Mixed },
+    normalizedDocumentValue: { type: Schema.Types.Mixed },
+    normalizedApplicationValue: { type: Schema.Types.Mixed },
+    explanation: { type: String, required: true, trim: true },
+    confidence: { type: Number, min: 0, max: 100 },
+    isRequired: { type: Boolean, required: true, default: true },
+    metadata: { type: Schema.Types.Mixed },
+  },
+  { _id: false }
+);
+
+const documentValidationResultSchema = new Schema<IDocumentValidationResult>(
+  {
+    applicationId: {
+      type: Schema.Types.ObjectId,
+      ref: "Application",
+      required: true,
+    },
+    documentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Document",
+      required: true,
+    },
+    extractionId: {
+      type: Schema.Types.ObjectId,
+      ref: "Document",
+      required: false,
+    },
+    classificationId: {
+      type: Schema.Types.ObjectId,
+      ref: "Document",
+      required: false,
+    },
+    expectedRequirementId: { type: String, required: true, trim: true },
+    predictedRequirementId: { type: String, trim: true },
+    overallStatus: {
+      type: String,
+      enum: Object.values(ValidationOverallStatus),
+      required: true,
+    },
+    findings: { type: [validationFindingSchema], default: [] },
+    ruleSetVersion: { type: String, required: true, trim: true },
+    engineVersion: { type: String, required: true, trim: true },
+    validatedAt: { type: Date, required: true, default: Date.now },
+    initiatedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    processingErrors: { type: [String], default: [] },
+    isRevalidation: { type: Boolean, required: true, default: false },
+    previousValidationId: {
+      type: Schema.Types.ObjectId,
+      ref: "Document",
+      required: false,
+    },
+  },
+  { _id: true, timestamps: true }
 );
 
 // Sub-schema for version history reference
@@ -300,6 +433,7 @@ const documentSchema = new Schema<IDocument>(
     },
     extraction: { type: textExtractionResultSchema, required: false },
     classification: { type: documentClassificationSchema, required: false },
+    validation: { type: documentValidationResultSchema, required: false },
   },
   {
     timestamps: true,
