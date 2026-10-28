@@ -542,6 +542,144 @@ async function getDocumentForReview(
   return document;
 }
 
+/**
+ * @route   GET /api/inspector/applications
+ * @desc    List applications for inspector review with pagination, status filter, search
+ * @access  Private (INSPECTOR)
+ */
+export const listApplicationsForInspector = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const page = Math.max(1, parseInt(String(req.query.page || "1"), 10));
+    const limit = Math.min(50, Math.max(1, parseInt(String(req.query.limit || "10"), 10)));
+    const skip = (page - 1) * limit;
+
+    const filter: Record<string, unknown> = {};
+
+    const statusParam = req.query.status as string | undefined;
+    if (statusParam && statusParam !== "all") {
+      filter.status = statusParam;
+    }
+
+    const search = req.query.search as string | undefined;
+    if (search && search.trim()) {
+      const searchRegex = new RegExp(search.trim(), "i");
+      filter.$or = [
+        { applicationId: searchRegex },
+        { "buildingDetails.buildingName": searchRegex },
+        { "applicantDetails.name": searchRegex },
+        { "applicantDetails.email": searchRegex },
+      ];
+    }
+
+    const [applications, total, stats] = await Promise.all([
+      Application.find(filter).sort({ updatedAt: -1 }).skip(skip).limit(limit).lean(),
+      Application.countDocuments(filter),
+      Application.aggregate([
+        {
+          $group: {
+            _id: "$status",
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+    ]);
+
+    const statMap: Record<string, number> = {
+      total: 0,
+      SUBMITTED: 0,
+      UNDER_REVIEW: 0,
+      DRAFT: 0,
+    };
+
+    let totalAll = 0;
+    stats.forEach((s) => {
+      statMap[s._id] = s.count;
+      totalAll += s.count;
+    });
+    statMap.total = totalAll;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        applications,
+        pagination: {
+          total,
+          page,
+          limit,
+          pages: Math.ceil(total / limit),
+        },
+        stats: statMap,
+      },
+    });
+  } catch (error: any) {
+    console.error("listApplicationsForInspector error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch applications for inspector",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @route   GET /api/inspector/applications/:id/documents/:documentId/download
+ * @desc    Get signed download URL for an inspector reviewing a document
+ * @access  Private (INSPECTOR)
+ */
+export const getDocumentDownloadForInspector = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const reviewerId = req.user!.userId;
+    const applicationId = getParam(req.params.id);
+    const documentId = getParam(req.params.documentId);
+
+    const document = await getDocumentForReview(documentId, applicationId, reviewerId);
+    if (!document) {
+      res.status(404).json({ success: false, message: "Document not found" });
+      return;
+    }
+
+    const { createStorageService } = await import("../services/storageService.js");
+    const storage = createStorageService();
+    const downloadUrl = storage.generateSignedUrl(document.cloudinaryPublicId, {
+      resourceType: document.cloudinaryResourceType,
+      deliveryType: document.cloudinaryDeliveryType as any,
+      expiresIn: 3600,
+      attachment: true,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        downloadUrl,
+        expiresIn: 3600,
+      },
+    });
+  } catch (error: any) {
+    if (error instanceof ReviewServiceError) {
+      res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+        code: error.code,
+      });
+      return;
+    }
+    console.error("getDocumentDownloadForInspector error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to generate download URL",
+      error: error.message,
+    });
+  }
+};
+
 function buildAppQuery(id: string | string[]) {
   const singleId = Array.isArray(id) ? id[0] : id;
   if (

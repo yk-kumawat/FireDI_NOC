@@ -89,23 +89,6 @@ export interface ITextExtractionResult {
   textSize: number;
 }
 
-export interface IDocumentClassification {
-  status: DocumentClassificationStatus;
-  expectedRequirementId?: string;
-  predictedRequirementId?: string;
-  predictedRequirementName?: string;
-  confidence: number;
-  explanation: string;
-  matchesExpected: boolean;
-  extractedFields: IExtractedField[];
-  missingFields: string[];
-  processingError?: string;
-  processingErrorCategory?: string;
-  startedAt?: Date;
-  completedAt?: Date;
-  modelUsed?: string;
-}
-
 // ─── Validation Result Types ───────────────────────────────────────────────────
 export enum ValidationOverallStatus {
   PASSED = "passed",
@@ -287,7 +270,7 @@ const documentClassificationSchema = new Schema<IDocumentClassification>(
     predictedRequirementId: { type: String, trim: true },
     predictedRequirementName: { type: String, trim: true },
     confidence: { type: Number, required: true, min: 0, max: 100, default: 0 },
-    explanation: { type: String, required: true, trim: true, default: "" },
+    explanation: { type: String, required: false, trim: true, default: "" },
     matchesExpected: { type: Boolean, required: true, default: false },
     extractedFields: { type: [extractedFieldSchema], default: [] },
     missingFields: { type: [String], default: [] },

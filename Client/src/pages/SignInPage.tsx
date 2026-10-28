@@ -110,9 +110,12 @@ const SignInPage = () => {
       // Update auth context with token and user
       login(data.data.token, data.data.user);
 
-      // Redirect based on role
+      // Redirect based on role (honoring redirect query parameter if present)
+      const searchParams = new URLSearchParams(window.location.search);
+      const redirectUrl = searchParams.get('redirect');
+
       if (data.data.user.role === 'APPLICANT') {
-        navigate('/applicant/dashboard');
+        navigate(redirectUrl || '/applicant/dashboard');
       } else if (data.data.user.role === 'INSPECTOR') {
         navigate('/inspector/dashboard');
       }

@@ -6,6 +6,7 @@ import type {
   DocumentVerificationStatus,
   ValidationOverallStatus,
 } from "../types/checklist";
+import type { Application, PaginationMeta } from "../types/application";
 
 const BASE_URL = "http://localhost:5000";
 
@@ -13,6 +14,57 @@ const getAuthHeaders = (token: string) => ({
   "Content-Type": "application/json",
   Authorization: `Bearer ${token}`,
 });
+
+export interface InspectorApplicationsResponse {
+  applications: Application[];
+  pagination: PaginationMeta;
+  stats: {
+    total: number;
+    SUBMITTED: number;
+    UNDER_REVIEW: number;
+    DRAFT: number;
+  };
+}
+
+/**
+ * List applications for inspector review with optional pagination, status filter, search
+ */
+export async function listInspectorApplications(
+  token: string,
+  params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    search?: string;
+  }
+): Promise<InspectorApplicationsResponse> {
+  const query = new URLSearchParams();
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.status) query.set("status", params.status);
+  if (params?.search) query.set("search", params.search);
+
+  const url = `${BASE_URL}/api/inspector/applications${query.toString() ? "?" + query.toString() : ""}`;
+  const res = await fetch(url, { headers: getAuthHeaders(token) });
+  return handleResponse<InspectorApplicationsResponse>(res);
+}
+
+/**
+ * Get signed download URL for an inspector reviewing a document
+ */
+export async function getInspectorDocumentDownloadUrl(
+  token: string,
+  applicationId: string,
+  documentId: string
+): Promise<{ downloadUrl: string; expiresIn: number }> {
+  const res = await fetch(
+    `${BASE_URL}/api/inspector/applications/${applicationId}/documents/${documentId}/download`,
+    {
+      headers: getAuthHeaders(token),
+    }
+  );
+  return handleResponse<{ downloadUrl: string; expiresIn: number }>(res);
+}
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (res.ok) {

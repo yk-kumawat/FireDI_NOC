@@ -64,7 +64,7 @@ const StatCard = ({ label, value, color }: { label: string; value: number; color
 
 const InspectorReviewPage = () => {
   const { id } = useParams<{ id: string }>();
-  const { token, user } = useAuth();
+  const { token, user, logout } = useAuth();
   const navigate = useNavigate();
 
   const [summary, setSummary] = useState<{
@@ -197,7 +197,7 @@ const InspectorReviewPage = () => {
                   </div>
                   <span className="text-sm font-semibold text-[#131b2e]" style={{ fontFamily: "Inter, sans-serif" }}>{user?.name}</span>
                 </div>
-                <button onClick={() => useAuth().logout()} className="p-2 text-[#5b403d] hover:bg-[#f8fafc] rounded-lg transition-colors" title="Logout">
+                <button onClick={logout} className="p-2 text-[#5b403d] hover:bg-[#f8fafc] rounded-lg transition-colors" title="Logout">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                   </svg>

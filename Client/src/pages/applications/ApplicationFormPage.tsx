@@ -5,7 +5,6 @@ import {
   createApplication,
   getApplication,
   updateApplication,
-  submitApplication,
 } from '../../services/applicationApi';
 import type {
   ApplicantDetails,
@@ -323,15 +322,14 @@ const ApplicationFormPage = () => {
     }
   };
 
-  // ── Submit Application ────────────────────────────────────────────────────────
-  const handleSubmit = async () => {
+  // ── Save and Continue to Documents/Checklist ──────────────────────────────────
+  const handleSaveAndContinue = async () => {
     if (!token) return;
 
     // Client-side validation
     const clientErrors = validateForm(formData);
     if (Object.keys(clientErrors).length > 0) {
       setFieldErrors(clientErrors);
-      // Scroll to top to see errors
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
@@ -358,10 +356,8 @@ const ApplicationFormPage = () => {
         architectDetails: formData.architectDetails as ArchitectDetails,
       });
 
-      // Submit
-      await submitApplication(token, appId);
       setIsDirty(false);
-      navigate('/applicant/applications', { state: { successMessage: 'Application submitted successfully!' } });
+      navigate(`/applicant/applications/${appId}`);
     } catch (err: unknown) {
       const typedErr = err as Error & { errors?: { field: string; message: string }[] };
       if (typedErr.errors) {
@@ -373,7 +369,7 @@ const ApplicationFormPage = () => {
         setFieldErrors(mapped);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
-        setGlobalError(typedErr.message || 'Failed to submit application');
+        setGlobalError(typedErr.message || 'Failed to save application');
       }
     } finally {
       setIsSubmitting(false);
@@ -773,9 +769,20 @@ const ApplicationFormPage = () => {
           </Link>
           <div className="flex items-center gap-3">
             {saveMessage && (
-              <span className="text-sm text-green-600 font-medium" style={{ fontFamily: 'Inter, sans-serif' }}>{saveMessage}</span>
+              <span className="text-sm text-green-600 font-medium" style={{ fontFamily: 'Inter, sans-serif' }}>
+                {saveMessage}
+                {applicationId && (
+                  <Link
+                    to={`/applicant/applications/${applicationId}`}
+                    className="ml-2 underline font-semibold text-[#b91c1c]"
+                  >
+                    Go to Checklist →
+                  </Link>
+                )}
+              </span>
             )}
             <button
+              type="button"
               onClick={handleSaveDraft}
               disabled={isSaving || isSubmitting}
               className="px-5 py-2.5 text-sm font-semibold text-[#b91c1c] border border-[#b91c1c] rounded-lg hover:bg-[#fef2f2] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -784,12 +791,16 @@ const ApplicationFormPage = () => {
               {isSaving ? 'Saving…' : 'Save Draft'}
             </button>
             <button
-              onClick={handleSubmit}
+              type="button"
+              onClick={handleSaveAndContinue}
               disabled={isSaving || isSubmitting}
-              className="px-5 py-2.5 text-sm font-semibold text-white bg-[#b91c1c] rounded-lg hover:bg-[#991b1b] transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2.5 text-sm font-semibold text-white bg-[#b91c1c] rounded-lg hover:bg-[#991b1b] transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               style={{ fontFamily: 'Inter, sans-serif' }}
             >
-              {isSubmitting ? 'Submitting…' : 'Submit Application'}
+              <span>{isSubmitting ? 'Saving & Loading…' : 'Save & Continue to Checklist'}</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
             </button>
           </div>
         </div>
